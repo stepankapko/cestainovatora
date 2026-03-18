@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SCOREBOARD</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+  :root {
+    --neon-cyan: #00f5ff;
+    --neon-pink: #ff006e;
+    --neon-yellow: #ffcc00;
+    --neon-green: #39ff14;
+    --dark: #03000a;
+    --panel: rgba(0,10,30,0.88);
+    --gold: #ffd700;
+    --silver: #c0c0c0;
+    --bronze: #cd7f32;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--dark);
+    font-family: 'Share Tech Mono', monospace;
+    color: #fff;
+    overflow: hidden;
+    height: 100vh; width: 100vw;
+  }
+
+  #bg-canvas { position: fixed; inset: 0; z-index: 0; }
+
+  #app {
+    position: relative; z-index: 10;
+    width: 100%; height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    overflow-y: auto;
+    padding: 20px 0;
+  }
+
+  .screen { display: none; flex-direction: column; align-items: center; gap: 18px; }
+  .screen.active { display: flex; }
+
+  .logo {
+    font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 3rem;
+    letter-spacing: 0.12em; color: var(--neon-cyan);
+    text-shadow: 0 0 20px var(--neon-cyan), 0 0 60px var(--neon-cyan);
+    animation: flicker 4s infinite; text-align: center;
+  }
+  .subtitle {
+    font-size: 0.72rem; letter-spacing: 0.4em;
+    color: var(--neon-pink); text-shadow: 0 0 10px var(--neon-pink);
+    margin-top: -10px;
+  }
+
+  .panel {
+    background: var(--panel); border: 1px solid rgba(0,245,255,0.28);
+    border-radius: 4px; padding: 28px; width: 100%;
+    box-shadow: 0 0 40px rgba(0,245,255,0.08), inset 0 0 30px rgba(0,0,20,0.5);
+    backdrop-filter: blur(12px);
+  }
+  .panel-title {
+    font-family: 'Orbitron', sans-serif; font-size: 0.65rem;
+    letter-spacing: 0.3em; color: var(--neon-cyan); margin-bottom: 16px; opacity: 0.7;
+  }
+
+  input[type="text"], input[type="number"] {
+    background: rgba(0,245,255,0.05); border: 1px solid rgba(0,245,255,0.4);
+    border-radius: 2px; color: #fff; font-family: 'Share Tech Mono', monospace;
+    font-size: 1.05rem; padding: 11px 14px; width: 100%; outline: none;
+    transition: all 0.2s; letter-spacing: 0.05em;
+  }
+  input::placeholder { color: rgba(255,255,255,0.2); }
+  input:focus {
+    border-color: var(--neon-cyan);
+    box-shadow: 0 0 14px rgba(0,245,255,0.3);
+    background: rgba(0,245,255,0.07);
+  }
+
+  .btn {
+    font-family: 'Orbitron', sans-serif; font-size: 0.8rem; font-weight: 700;
+    letter-spacing: 0.12em; padding: 13px 28px; border: none; border-radius: 2px;
+    cursor: pointer; transition: all 0.15s; text-transform: uppercase; width: 100%;
+  }
+  .btn-primary { background: var(--neon-cyan); color: #000; }
+  .btn-primary:hover { box-shadow: 0 0 28px rgba(0,245,255,0.8); transform: translateY(-1px); }
+  .btn-secondary { background: transparent; color: var(--neon-pink); border: 1px solid var(--neon-pink); }
+  .btn-secondary:hover { background: rgba(255,0,110,0.1); box-shadow: 0 0 18px rgba(255,0,110,0.4); }
+  .btn-green { background: var(--neon-green); color: #000; }
+  .btn-green:hover { box-shadow: 0 0 20px rgba(57,255,20,0.7); }
+  .btn-sm { width: auto; padding: 11px 18px; font-size: 0.72rem; }
+  .btn-row { display: flex; gap: 10px; width: 100%; }
+
+  #login-screen { width: 420px; }
+
+  #qr-modal {
+    display: none; position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,10,0.93); backdrop-filter: blur(10px);
+    align-items: center; justify-content: center; flex-direction: column; gap: 22px;
+  }
+  #qr-modal.open { display: flex; }
+  .qr-box {
+    background: #fff; padding: 16px; border-radius: 6px;
+    box-shadow: 0 0 60px rgba(0,245,255,0.5);
+  }
+  .qr-label {
+    font-family: 'Orbitron', sans-serif; font-size: 0.85rem; letter-spacing: 0.2em;
+    color: var(--neon-cyan); text-align: center;
+    text-shadow: 0 0 10px var(--neon-cyan);
+  }
+  .qr-url {
+    font-size: 0.58rem; color: rgba(255,255,255,0.28); text-align: center;
+    max-width: 300px; word-break: break-all; letter-spacing: 0.04em;
+  }
+  .qr-room {
+    font-family: 'Orbitron', sans-serif; font-size: 0.7rem;
+    color: rgba(255,255,255,0.4); letter-spacing: 0.25em; text-align: center;
+  }
+
+  #score-screen { width: 500px; }
+  .user-header { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+  .user-tag { font-family: 'Orbitron', sans-serif; font-size: 1rem; color: var(--neon-cyan); text-shadow: 0 0 10px var(--neon-cyan); }
+  .user-tag span { color: rgba(255,255,255,0.4); font-size: 0.65rem; letter-spacing: 0.2em; display: block; margin-bottom: 2px; }
+  .total-score-display { text-align: right; }
+  .total-score-display .label { font-size: 0.6rem; letter-spacing: 0.2em; color: rgba(255,255,255,0.35); }
+  .total-score-display .value {
+    font-family: 'Orbitron', sans-serif; font-size: 2.2rem; font-weight: 900;
+    color: var(--neon-yellow); text-shadow: 0 0 20px var(--neon-yellow); line-height: 1;
+  }
+  .score-row { display: flex; gap: 10px; width: 100%; align-items: center; }
+  .score-history { max-height: 150px; overflow-y: auto; width: 100%; scrollbar-width: thin; scrollbar-color: var(--neon-cyan) transparent; }
+  .score-entry { display: flex; justify-content: space-between; align-items: center; padding: 7px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); animation: slideIn 0.3s ease; }
+  .score-entry:last-child { border-bottom: none; }
+  .entry-num { color: rgba(255,255,255,0.25); font-size: 0.65rem; width: 22px; }
+  .entry-val { color: var(--neon-green); font-size: 1rem; text-shadow: 0 0 7px rgba(57,255,20,0.5); }
+  .entry-time { color: rgba(255,255,255,0.2); font-size: 0.6rem; }
+  .empty-history { text-align: center; color: rgba(255,255,255,0.2); font-size: 0.7rem; letter-spacing: 0.2em; padding: 18px; }
+
+  .sync-bar {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.62rem; letter-spacing: 0.15em; color: rgba(255,255,255,0.3);
+    width: 100%; justify-content: flex-end;
+  }
+  .sync-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--neon-green); box-shadow: 0 0 6px var(--neon-green);
+    animation: pulse 2s infinite; flex-shrink: 0;
+  }
+  .sync-dot.off { background: #555; box-shadow: none; animation: none; }
+
+  #leaderboard-screen { width: 520px; }
+  .lb-title {
+    font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.5rem;
+    letter-spacing: 0.2em; color: var(--neon-yellow); text-shadow: 0 0 20px var(--neon-yellow); text-align: center;
+  }
+  .lb-list { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+  .lb-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 13px 16px; border-radius: 3px; position: relative;
+    overflow: hidden; transition: transform 0.2s;
+    animation: slideIn 0.4s ease both;
+  }
+  .lb-row:hover { transform: translateX(4px); }
+  .lb-row.rank-1 { border: 1px solid var(--gold); box-shadow: 0 0 20px rgba(255,215,0,0.2); }
+  .lb-row.rank-2 { border: 1px solid var(--silver); box-shadow: 0 0 10px rgba(192,192,192,0.12); }
+  .lb-row.rank-3 { border: 1px solid var(--bronze); }
+  .lb-row.rank-4, .lb-row.rank-5 { border: 1px solid rgba(255,255,255,0.08); }
+  .lb-rank { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.2rem; width: 32px; text-align: center; flex-shrink: 0; }
+  .rank-1 .lb-rank { color: var(--gold); text-shadow: 0 0 12px var(--gold); }
+  .rank-2 .lb-rank { color: var(--silver); }
+  .rank-3 .lb-rank { color: var(--bronze); }
+  .rank-4 .lb-rank, .rank-5 .lb-rank { color: rgba(255,255,255,0.35); }
+  .lb-medal { font-size: 1.3rem; flex-shrink: 0; }
+  .lb-name { font-family: 'Orbitron', sans-serif; font-size: 0.85rem; font-weight: 700; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rank-1 .lb-name { color: var(--gold); }
+  .rank-2 .lb-name { color: var(--silver); }
+  .rank-3 .lb-name { color: var(--bronze); }
+  .lb-score { font-family: 'Orbitron', sans-serif; font-size: 1.3rem; font-weight: 900; color: var(--neon-cyan); text-shadow: 0 0 10px var(--neon-cyan); flex-shrink: 0; }
+  .rank-1 .lb-score { color: var(--gold); text-shadow: 0 0 14px var(--gold); font-size: 1.5rem; }
+  .lb-bar-wrap { position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background: rgba(255,255,255,0.04); }
+  .lb-bar { height: 100%; background: var(--neon-cyan); transition: width 0.8s cubic-bezier(0.16,1,0.3,1); }
+  .rank-1 .lb-bar { background: var(--gold); }
+  .rank-2 .lb-bar { background: var(--silver); }
+  .rank-3 .lb-bar { background: var(--bronze); }
+  .lb-empty { text-align: center; color: rgba(255,255,255,0.2); letter-spacing: 0.2em; font-size: 0.75rem; padding: 28px; }
+  .lb-updated { font-size: 0.58rem; color: rgba(255,255,255,0.18); letter-spacing: 0.18em; text-align: center; }
+  .lb-me { background: rgba(0,245,255,0.04) !important; }
+
+  #toast {
+    position: fixed; bottom: 28px; left: 50%;
+    transform: translateX(-50%) translateY(60px);
+    background: var(--neon-green); color: #000;
+    font-family: 'Orbitron', sans-serif; font-size: 0.72rem; font-weight: 700;
+    letter-spacing: 0.12em; padding: 11px 26px; border-radius: 2px;
+    z-index: 999; transition: transform 0.3s cubic-bezier(0.16,1,0.3,1); white-space: nowrap;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+  #toast.err { background: var(--neon-pink); color: #fff; }
+
+  body::after {
+    content: ''; position: fixed; inset: 0;
+    background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.04) 2px,rgba(0,0,0,0.04) 4px);
+    pointer-events: none; z-index: 5;
+  }
+
+  @keyframes flicker { 0%,96%,100%{opacity:1} 97%{opacity:.8} 98%{opacity:1} 99%{opacity:.6} }
+  @keyframes slideIn { from{opacity:0;transform:translateX(-14px)} to{opacity:1;transform:translateX(0)} }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  @keyframes bump { 0%{transform:scale(1)} 50%{transform:scale(1.14)} 100%{transform:scale(1)} }
+  .score-bump { animation: bump 0.3s ease; }
+</style>
+</head>
+<body>
+<canvas id="bg-canvas"></canvas>
+
+<div id="app">
+
+  <!-- ══ LOGIN ══ -->
+  <div id="login-screen" class="screen active">
+    <div class="logo">SCORE<br>BOARD</div>
+    <div class="subtitle">// Multiplayer Live Tracker</div>
+    <div class="panel">
+      <div class="panel-title">// PLAYER AUTHENTICATION</div>
+      <input type="text" id="nickname-input" placeholder="ZADEJ NICKNAME..." maxlength="20" autocomplete="off">
+      <br><br>
+      <button class="btn btn-primary" onclick="login()">VSTOUPIT DO ARÉNY</button>
+      <br><br>
+      <button class="btn btn-secondary" onclick="showQR()" style="font-size:0.72rem;">📱 ZOBRAZIT QR — SDÍLEJ S OSTATNÍMI</button>
+    </div>
+    <div class="sync-bar">
+      <div class="sync-dot off" id="sync-dot-login"></div>
+      <span id="sync-label-login">PŘIPOJOVÁNÍ...</span>
+    </div>
+  </div>
+
+  <!-- ══ SCORE ENTRY ══ -->
+  <div id="score-screen" class="screen">
+    <div class="user-header">
+      <div class="user-tag">
+        <span>// HRÁČ</span>
+        <span id="display-name">—</span>
+      </div>
+      <div class="total-score-display">
+        <div class="label">CELKOVÉ BODY</div>
+        <div class="value" id="total-display">0</div>
+      </div>
+    </div>
+
+    <div class="panel" style="padding:18px;">
+      <div class="panel-title">// PŘIDAT SKÓRE</div>
+      <div class="score-row">
+        <input type="number" id="score-input" placeholder="Zadej číslo..." min="-99999" max="999999">
+        <button class="btn btn-green btn-sm" onclick="addScore()">+ ADD</button>
+      </div>
+    </div>
+
+    <div class="panel" style="padding:18px;">
+      <div class="panel-title">// HISTORIE BODŮ</div>
+      <div class="score-history" id="score-history">
+        <div class="empty-history">// ŽÁDNÉ ZÁZNAMY //</div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="goLeaderboard()">🏆 LEADERBOARD</button>
+      <button class="btn btn-secondary btn-sm" onclick="showQR()">📱 QR</button>
+      <button class="btn btn-secondary btn-sm" onclick="logout()">EXIT</button>
+    </div>
+    <div class="sync-bar">
+      <div class="sync-dot off" id="sync-dot-score"></div>
+      <span id="sync-label-score">PŘIPOJOVÁNÍ...</span>
+    </div>
+  </div>
+
+  <!-- ══ LEADERBOARD ══ -->
+  <div id="leaderboard-screen" class="screen">
+    <div class="lb-title">🏆 TOP 5 HRÁČŮ</div>
+    <div class="panel" style="padding:18px;">
+      <div id="lb-list" class="lb-list">
+        <div class="lb-empty">// ŽÁDNÍ HRÁČI //</div>
+      </div>
+    </div>
+    <div class="lb-updated" id="lb-updated">—</div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="goScore()">← ZPĚT</button>
+      <button class="btn btn-secondary btn-sm" onclick="showQR()">📱 QR</button>
+    </div>
+    <div class="sync-bar">
+      <div class="sync-dot off" id="sync-dot-lb"></div>
+      <span id="sync-label-lb">LIVE</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══ QR MODAL ══ -->
+<div id="qr-modal">
+  <div class="qr-label">📱 NASKENUJ &amp; PŘIPOJ SE</div>
+  <div class="qr-box" id="qr-code-box"></div>
+  <div class="qr-room">ROOM CODE: <span id="session-id-label" style="color:var(--neon-yellow);text-shadow:0 0 8px var(--neon-yellow);"></span></div>
+  <div class="qr-url" id="qr-url-text"></div>
+  <button class="btn btn-primary" style="width:200px;margin-top:8px;" onclick="closeQR()">✕ ZAVŘÍT</button>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════
+// THREE.JS BACKGROUND
+// ══════════════════════════════════════════════════
+const canvas = document.getElementById('bg-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
+camera.position.z = 5;
+
+const gridHelper = new THREE.GridHelper(40, 40, 0x00f5ff, 0x001020);
+gridHelper.position.y = -2.2; gridHelper.rotation.x = 0.28;
+scene.add(gridHelper);
+
+const pCount = 100;
+const pPos = new Float32Array(pCount * 3);
+for (let i = 0; i < pCount; i++) {
+  pPos[i*3]=(Math.random()-.5)*20; pPos[i*3+1]=(Math.random()-.5)*10; pPos[i*3+2]=(Math.random()-.5)*10;
+}
+const pGeo = new THREE.BufferGeometry();
+pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+const particles = new THREE.Points(pGeo, new THREE.PointsMaterial({color:0x00f5ff,size:0.05,transparent:true,opacity:0.55}));
+scene.add(particles);
+
+function makeSphere(x,y,z,r,c){
+  const m=new THREE.Mesh(new THREE.IcosahedronGeometry(r,1),new THREE.MeshBasicMaterial({color:c,wireframe:true,transparent:true,opacity:0.1}));
+  m.position.set(x,y,z); scene.add(m); return m;
+}
+const sp=[makeSphere(-3,1,-2,1.2,0x00f5ff),makeSphere(3.5,-1,-1,0.8,0xff006e),makeSphere(0,2,-3,1.5,0xffcc00)];
+
+let t=0;
+(function animate(){
+  requestAnimationFrame(animate); t+=0.008;
+  particles.rotation.y=t*0.05;
+  sp[0].rotation.x=t*.4; sp[0].rotation.y=t*.3;
+  sp[1].rotation.z=t*.5; sp[1].rotation.x=t*.2;
+  sp[2].rotation.y=t*.35; sp[2].rotation.z=t*.4;
+  gridHelper.position.z=(t*.3)%1;
+  renderer.render(scene,camera);
+})();
+window.addEventListener('resize',()=>{
+  camera.aspect=window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth,window.innerHeight);
+});
+
+// ══════════════════════════════════════════════════
+// ROOM / SESSION
+// URL param ?room=XXXXX lets everyone share state.
+// Falls back to localStorage if kvdb is unavailable.
+// ══════════════════════════════════════════════════
+function getRoomCode(){
+  const params=new URLSearchParams(window.location.search);
+  let room=params.get('room')||'';
+  if(!room||room.length<4){
+    room=Math.random().toString(36).slice(2,8).toUpperCase();
+    const url=new URL(window.location.href);
+    url.searchParams.set('room',room);
+    window.history.replaceState({},'',url.toString());
+  }
+  return room;
+}
+
+const ROOM = getRoomCode();
+// We use kvdb.io free tier — the bucket is public but the key is unique per room.
+const KVDB_BUCKET = 'fzXNW8vKqT2mP9rJcL4bYsDn';
+const API_URL = `https://kvdb.io/${KVDB_BUCKET}/scoreboard_${ROOM}`;
+const LS_KEY = `sb_local_${ROOM}`; // localStorage fallback
+
+let players = {};
+let currentUser = null;
+let lastHash = '';
+let connected = false;
+let syncTimer = null;
+
+// ── remote read
+async function fetchRemote(){
+  try{
+    const r=await fetch(API_URL,{cache:'no-store',signal:AbortSignal.timeout(5000)});
+    if(r.status===404) return {};
+    if(!r.ok) throw new Error(r.status);
+    const txt=await r.text();
+    return txt?JSON.parse(txt):{};
+  }catch(e){ return null; }
+}
+
+// ── remote write
+async function pushRemote(data){
+  try{
+    const r=await fetch(API_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(data),
+      signal:AbortSignal.timeout(5000)
+    });
+    return r.ok;
+  }catch(e){ return false; }
+}
+
+function lsSave(data){ try{localStorage.setItem(LS_KEY,JSON.stringify(data));}catch(e){} }
+function lsLoad(){ try{const d=localStorage.getItem(LS_KEY);return d?JSON.parse(d):{};}catch(e){return {};} }
+
+function hashObj(o){ return JSON.stringify(o); }
+
+function setConnected(on){
+  connected=on;
+  ['login','score','lb'].forEach(id=>{
+    const dot=document.getElementById(`sync-dot-${id}`);
+    const lbl=document.getElementById(`sync-label-${id}`);
+    if(!dot)return;
+    dot.className='sync-dot'+(on?'':' off');
+    lbl.textContent=on?'LIVE — sdíleno v reálném čase':'OFFLINE — ukládám lokálně';
+  });
+}
+
+async function syncData(forcePush=false){
+  const remote=await fetchRemote();
+  if(remote===null){
+    setConnected(false);
+    // use localStorage only
+    players=lsLoad();
+    updateUI();
+    return;
+  }
+  setConnected(true);
+
+  // merge: keep highest total per user (handles concurrent edits gracefully)
+  const merged=Object.assign({},remote);
+  if(currentUser&&players[currentUser]){
+    // always prefer our own local data for current user
+    merged[currentUser]=players[currentUser];
+  }
+
+  const newHash=hashObj(merged);
+  if(newHash!==lastHash||forcePush){
+    players=merged;
+    lastHash=newHash;
+    lsSave(players);
+    if(forcePush||newHash!==hashObj(remote)){
+      await pushRemote(players);
+    }
+    updateUI();
+  }
+}
+
+function updateUI(){
+  if(currentUser&&players[currentUser]){
+    updateScoreDisplay(false);
+  }
+  if(document.getElementById('leaderboard-screen').classList.contains('active')){
+    renderLeaderboard();
+  }
+}
+
+function startSync(){
+  if(syncTimer)clearInterval(syncTimer);
+  syncTimer=setInterval(()=>syncData(false),4000);
+}
+
+// ══════════════════════════════════════════════════
+// APP
+// ══════════════════════════════════════════════════
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showToast(msg,isErr=false){
+  const el=document.getElementById('toast');
+  el.textContent=msg;
+  el.className='show'+(isErr?' err':'');
+  clearTimeout(el._t);
+  el._t=setTimeout(()=>el.className='',2500);
+}
+
+function login(){
+  const nick=document.getElementById('nickname-input').value.trim().toUpperCase();
+  if(!nick){showToast('⚠ ZADEJ NICKNAME!',true);return;}
+  currentUser=nick;
+  if(!players[nick])players[nick]={total:0,history:[]};
+  document.getElementById('display-name').textContent=nick;
+  syncData(true).then(()=>{
+    updateScoreDisplay(false);
+    show('score-screen');
+  });
+  document.getElementById('nickname-input').value='';
+}
+
+function logout(){currentUser=null;show('login-screen');}
+
+function updateScoreDisplay(anim=true){
+  if(!currentUser||!players[currentUser])return;
+  const p=players[currentUser];
+  const el=document.getElementById('total-display');
+  el.textContent=p.total;
+  if(anim){el.classList.remove('score-bump');void el.offsetWidth;el.classList.add('score-bump');}
+  const hist=document.getElementById('score-history');
+  if(!p.history.length){
+    hist.innerHTML='<div class="empty-history">// ŽÁDNÉ ZÁZNAMY //</div>';return;
+  }
+  hist.innerHTML=[...p.history].reverse().map((e,i)=>`
+    <div class="score-entry">
+      <span class="entry-num">#${p.history.length-i}</span>
+      <span class="entry-val">${e.val>=0?'+':''}${e.val}</span>
+      <span class="entry-time">${e.time}</span>
+    </div>`).join('');
+}
+
+async function addScore(){
+  const raw=document.getElementById('score-input').value;
+  if(raw===''||isNaN(Number(raw))){showToast('⚠ ZADEJ ČÍSLO!',true);return;}
+  const val=parseInt(raw);
+  const now=new Date();
+  const time=`${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+  players[currentUser].total+=val;
+  players[currentUser].history.push({val,time});
+  document.getElementById('score-input').value='';
+  updateScoreDisplay(true);
+  showToast(val>=0?`+${val} BODŮ PŘIDÁNO!`:`${val} ODEČTENO!`);
+  await syncData(true);
+}
+
+function goLeaderboard(){renderLeaderboard();show('leaderboard-screen');syncData(false);}
+function goScore(){updateScoreDisplay(false);show('score-screen');}
+
+function renderLeaderboard(){
+  const sorted=Object.entries(players).sort((a,b)=>b[1].total-a[1].total).slice(0,5);
+  document.getElementById('lb-updated').textContent=
+    `// AKTUALIZOVÁNO: ${new Date().toLocaleTimeString('cs-CZ')} — ROOM: ${ROOM}`;
+  const c=document.getElementById('lb-list');
+  if(!sorted.length){c.innerHTML='<div class="lb-empty">// ŽÁDNÍ HRÁČI //</div>';return;}
+  const maxScore=Math.max(1,sorted[0][1].total);
+  const medals=['🥇','🥈','🥉','',''];
+  c.innerHTML=sorted.map(([nick,data],i)=>{
+    const pct=Math.max(0,(data.total/maxScore)*100);
+    const isMe=nick===currentUser?' lb-me':'';
+    return `<div class="lb-row rank-${i+1}${isMe}" style="animation-delay:${i*.07}s">
+      <div class="lb-rank">${i+1}</div>
+      <div class="lb-medal">${medals[i]}</div>
+      <div class="lb-name">${nick}</div>
+      <div class="lb-score">${data.total}</div>
+      <div class="lb-bar-wrap"><div class="lb-bar" style="width:${pct}%"></div></div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════
+// QR CODE
+// ══════════════════════════════════════════════════
+let qrReady=false;
+function showQR(){
+  const url=new URL(window.location.href);
+  url.searchParams.set('room',ROOM);
+  const fullUrl=url.toString();
+  document.getElementById('qr-url-text').textContent=fullUrl;
+  document.getElementById('session-id-label').textContent=ROOM;
+  if(!qrReady){
+    const box=document.getElementById('qr-code-box');
+    box.innerHTML='';
+    new QRCode(box,{text:fullUrl,width:220,height:220,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
+    qrReady=true;
+  }
+  document.getElementById('qr-modal').classList.add('open');
+}
+function closeQR(){document.getElementById('qr-modal').classList.remove('open');}
+document.getElementById('qr-modal').addEventListener('click',e=>{if(e.target===document.getElementById('qr-modal'))closeQR();});
+
+// ══════════════════════════════════════════════════
+// KEYBOARD
+// ══════════════════════════════════════════════════
+document.getElementById('nickname-input').addEventListener('keydown',e=>{if(e.key==='Enter')login();});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&document.getElementById('score-screen').classList.contains('active'))addScore();
+  if(e.key==='Escape')closeQR();
+});
+
+// ══════════════════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════════════════
+(async()=>{
+  // load localStorage first for instant display
+  players=lsLoad();
+  // then fetch remote
+  const remote=await fetchRemote();
+  if(remote!==null){
+    players=Object.assign({},remote);
+    lsSave(players);
+    setConnected(true);
+  } else {
+    setConnected(false);
+  }
+  startSync();
+})();
+</script>
+</body>
+</html>
