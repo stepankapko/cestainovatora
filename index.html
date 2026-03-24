@@ -3,591 +3,1219 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SCOREBOARD</title>
+<title>TEAM FORGE</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Orbitron:wght@400;700;900&family=Nunito:wght@700;800;900&display=swap');
 
-  :root {
-    --neon-cyan: #00f5ff;
-    --neon-pink: #ff006e;
-    --neon-yellow: #ffcc00;
-    --neon-green: #39ff14;
-    --dark: #03000a;
-    --panel: rgba(0,10,30,0.88);
-    --gold: #ffd700;
-    --silver: #c0c0c0;
-    --bronze: #cd7f32;
-  }
+:root {
+  --cyan:   #00f5ff;
+  --pink:   #ff006e;
+  --yellow: #ffd700;
+  --green:  #39ff14;
+  --dark:   #04000e;
+  --panel:  rgba(4,0,20,0.88);
+  --col-blue:   #2196f3;
+  --col-yellow: #f5c800;
+  --col-red:    #e53935;
+  --col-green:  #2e7d32;
+}
 
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+* { margin:0; padding:0; box-sizing:border-box; }
+html,body { width:100%; height:100%; overflow:hidden; background:var(--dark); font-family:'Nunito',sans-serif; color:#fff; }
 
-  body {
-    background: var(--dark);
-    font-family: 'Share Tech Mono', monospace;
-    color: #fff;
-    overflow: hidden;
-    height: 100vh; width: 100vw;
-  }
+#bg { position:fixed; inset:0; z-index:0; }
 
-  #bg-canvas { position: fixed; inset: 0; z-index: 0; }
+/* ═══ SCREENS ═══ */
+.screen { display:none; position:relative; z-index:10; width:100vw; height:100vh; align-items:center; justify-content:center; flex-direction:column; }
+.screen.active { display:flex; }
+.scrollable { overflow-y:auto; overflow-x:hidden; padding:24px 0; }
 
-  #app {
-    position: relative; z-index: 10;
-    width: 100%; height: 100vh;
-    display: flex; align-items: center; justify-content: center;
-    overflow-y: auto; padding: 20px 0;
-  }
+/* ═══ SCANLINES ═══ */
+body::after { content:''; position:fixed; inset:0; background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px); pointer-events:none; z-index:5; }
 
-  .screen { display: none; flex-direction: column; align-items: center; gap: 16px; }
-  .screen.active { display: flex; }
+/* ═══ TYPOGRAPHY ═══ */
+.logo-title {
+  font-family:'Orbitron',sans-serif; font-weight:900; font-size:3.8rem;
+  color:var(--cyan); text-shadow:0 0 20px var(--cyan),0 0 60px var(--cyan),0 0 120px rgba(0,245,255,0.3);
+  letter-spacing:0.1em; text-align:center; line-height:1;
+  animation:flicker 5s infinite;
+}
+.logo-sub { font-family:'Orbitron',sans-serif; font-size:0.7rem; letter-spacing:0.5em; color:var(--pink); text-shadow:0 0 10px var(--pink); text-align:center; margin-top:6px; }
 
-  .logo {
-    font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 3rem;
-    letter-spacing: 0.12em; color: var(--neon-cyan);
-    text-shadow: 0 0 20px var(--neon-cyan), 0 0 60px var(--neon-cyan);
-    animation: flicker 4s infinite; text-align: center;
-  }
-  .subtitle {
-    font-size: 0.72rem; letter-spacing: 0.4em;
-    color: var(--neon-pink); text-shadow: 0 0 10px var(--neon-pink);
-    margin-top: -10px;
-  }
+.section-title { font-family:'Orbitron',sans-serif; font-size:0.65rem; letter-spacing:0.35em; color:var(--cyan); opacity:0.65; margin-bottom:14px; text-transform:uppercase; }
+.round-badge {
+  font-family:'Orbitron',sans-serif; font-weight:900; font-size:0.75rem; letter-spacing:0.2em;
+  padding:6px 18px; border-radius:20px; text-transform:uppercase; display:inline-block;
+}
+.round-badge.r1 { background:rgba(57,255,20,0.15); border:1px solid var(--green); color:var(--green); }
+.round-badge.r2 { background:rgba(255,215,0,0.15); border:1px solid var(--yellow); color:var(--yellow); }
 
-  .panel {
-    background: var(--panel); border: 1px solid rgba(0,245,255,0.28);
-    border-radius: 4px; padding: 24px; width: 100%;
-    box-shadow: 0 0 40px rgba(0,245,255,0.08), inset 0 0 30px rgba(0,0,20,0.5);
-    backdrop-filter: blur(12px);
-  }
-  .panel-title {
-    font-family: 'Orbitron', sans-serif; font-size: 0.62rem;
-    letter-spacing: 0.3em; color: var(--neon-cyan); margin-bottom: 14px; opacity: 0.7;
-  }
+/* ═══ PANEL ═══ */
+.panel {
+  background:var(--panel); border:1px solid rgba(0,245,255,0.22);
+  border-radius:6px; backdrop-filter:blur(14px);
+  box-shadow:0 0 40px rgba(0,245,255,0.06), inset 0 0 30px rgba(0,0,20,0.5);
+}
 
-  input[type="text"], input[type="number"] {
-    background: rgba(0,245,255,0.05); border: 1px solid rgba(0,245,255,0.4);
-    border-radius: 2px; color: #fff; font-family: 'Share Tech Mono', monospace;
-    font-size: 1.05rem; padding: 11px 14px; width: 100%; outline: none;
-    transition: all 0.2s; letter-spacing: 0.05em;
-  }
-  input::placeholder { color: rgba(255,255,255,0.2); }
-  input:focus {
-    border-color: var(--neon-cyan);
-    box-shadow: 0 0 14px rgba(0,245,255,0.3);
-    background: rgba(0,245,255,0.07);
-  }
+/* ═══ BUTTONS ═══ */
+.btn {
+  font-family:'Orbitron',sans-serif; font-weight:700; font-size:0.8rem;
+  letter-spacing:0.12em; padding:13px 30px; border:none; border-radius:3px;
+  cursor:pointer; transition:all 0.15s; text-transform:uppercase;
+}
+.btn-primary { background:var(--cyan); color:#000; }
+.btn-primary:hover { box-shadow:0 0 30px rgba(0,245,255,0.9); transform:translateY(-1px); }
+.btn-secondary { background:transparent; color:var(--pink); border:1px solid var(--pink); }
+.btn-secondary:hover { background:rgba(255,0,110,0.1); box-shadow:0 0 20px rgba(255,0,110,0.4); }
+.btn-gold { background:var(--yellow); color:#000; }
+.btn-gold:hover { box-shadow:0 0 30px rgba(255,215,0,0.8); transform:translateY(-1px); }
+.btn:active { transform:translateY(0) !important; }
+.btn:disabled { opacity:0.3; cursor:default; transform:none !important; box-shadow:none !important; }
 
-  .btn {
-    font-family: 'Orbitron', sans-serif; font-size: 0.78rem; font-weight: 700;
-    letter-spacing: 0.12em; padding: 13px 28px; border: none; border-radius: 2px;
-    cursor: pointer; transition: all 0.15s; text-transform: uppercase; width: 100%;
-  }
-  .btn-primary { background: var(--neon-cyan); color: #000; }
-  .btn-primary:hover { box-shadow: 0 0 28px rgba(0,245,255,0.8); transform: translateY(-1px); }
-  .btn-primary:active { transform: translateY(0); }
-  .btn-secondary { background: transparent; color: var(--neon-pink); border: 1px solid var(--neon-pink); }
-  .btn-secondary:hover { background: rgba(255,0,110,0.1); box-shadow: 0 0 18px rgba(255,0,110,0.4); }
-  .btn-green { background: var(--neon-green); color: #000; }
-  .btn-green:hover { box-shadow: 0 0 20px rgba(57,255,20,0.7); }
-  .btn-sm { width: auto; padding: 11px 16px; font-size: 0.7rem; }
-  .btn-row { display: flex; gap: 10px; width: 100%; }
+/* ═══ ═══ QR SCREEN ═══ ═══ */
+#screen-qr { gap:32px; }
+.qr-wrap { display:flex; flex-direction:column; align-items:center; gap:20px; }
+.qr-box-outer {
+  background:#fff; padding:20px; border-radius:12px;
+  box-shadow:0 0 80px rgba(0,245,255,0.6), 0 0 160px rgba(0,245,255,0.2);
+  animation:qrpulse 3s ease-in-out infinite;
+}
+@keyframes qrpulse {
+  0%,100%{box-shadow:0 0 60px rgba(0,245,255,0.5),0 0 120px rgba(0,245,255,0.15);}
+  50%{box-shadow:0 0 100px rgba(0,245,255,0.9),0 0 200px rgba(0,245,255,0.3);}
+}
+.qr-title {
+  font-family:'Orbitron',sans-serif; font-weight:900; font-size:2rem;
+  color:var(--cyan); text-shadow:0 0 20px var(--cyan); letter-spacing:0.15em; text-align:center;
+}
+.qr-url-display {
+  font-family:'Share Tech Mono',monospace; font-size:0.85rem;
+  color:rgba(255,255,255,0.5); letter-spacing:0.05em; text-align:center;
+  background:rgba(255,255,255,0.05); padding:10px 20px; border-radius:4px;
+  border:1px solid rgba(255,255,255,0.1);
+}
+.qr-instruction {
+  font-family:'Orbitron',sans-serif; font-size:0.7rem; letter-spacing:0.25em;
+  color:var(--green); text-shadow:0 0 10px var(--green); text-align:center;
+  animation:pulse 2s infinite;
+}
+.qr-stats-row { display:flex; gap:24px; }
+.qr-stat { text-align:center; }
+.qr-stat-val { font-family:'Orbitron',sans-serif; font-size:1.8rem; font-weight:900; color:var(--yellow); text-shadow:0 0 15px var(--yellow); }
+.qr-stat-lbl { font-size:0.6rem; letter-spacing:0.2em; color:rgba(255,255,255,0.35); margin-top:2px; }
 
-  /* LOGIN */
-  #login-screen { width: 420px; }
+/* ═══ ═══ NICKNAME ═══ ═══ */
+#screen-nick { gap:24px; }
+#screen-nick .panel { padding:32px 36px; width:420px; }
+.nick-input {
+  background:rgba(0,245,255,0.06); border:2px solid rgba(0,245,255,0.4);
+  border-radius:3px; color:#fff; font-family:'Orbitron',sans-serif;
+  font-size:1.4rem; font-weight:700; padding:14px 18px; width:100%; outline:none;
+  letter-spacing:0.1em; text-transform:uppercase; text-align:center;
+  transition:all 0.2s;
+}
+.nick-input::placeholder { color:rgba(255,255,255,0.2); font-size:1rem; letter-spacing:0.05em; }
+.nick-input:focus { border-color:var(--cyan); box-shadow:0 0 20px rgba(0,245,255,0.4); }
 
-  /* SCORE */
-  #score-screen { width: 500px; }
-  .user-header { display: flex; align-items: center; justify-content: space-between; width: 100%; }
-  .user-tag { font-family: 'Orbitron', sans-serif; font-size: 1rem; color: var(--neon-cyan); text-shadow: 0 0 10px var(--neon-cyan); }
-  .user-tag span { color: rgba(255,255,255,0.4); font-size: 0.62rem; letter-spacing: 0.2em; display: block; margin-bottom: 2px; }
-  .total-score-display { text-align: right; }
-  .total-score-display .label { font-size: 0.58rem; letter-spacing: 0.2em; color: rgba(255,255,255,0.35); }
-  .total-score-display .value {
-    font-family: 'Orbitron', sans-serif; font-size: 2.2rem; font-weight: 900;
-    color: var(--neon-yellow); text-shadow: 0 0 20px var(--neon-yellow); line-height: 1;
-  }
-  .score-row { display: flex; gap: 10px; width: 100%; align-items: center; }
-  .score-history { max-height: 150px; overflow-y: auto; width: 100%; scrollbar-width: thin; scrollbar-color: var(--neon-cyan) transparent; }
-  .score-entry { display: flex; justify-content: space-between; align-items: center; padding: 7px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); animation: slideIn 0.3s ease; }
-  .score-entry:last-child { border-bottom: none; }
-  .entry-num { color: rgba(255,255,255,0.25); font-size: 0.62rem; width: 22px; }
-  .entry-val { color: var(--neon-green); font-size: 1rem; text-shadow: 0 0 7px rgba(57,255,20,0.5); }
-  .entry-time { color: rgba(255,255,255,0.2); font-size: 0.58rem; }
-  .empty-history { text-align: center; color: rgba(255,255,255,0.2); font-size: 0.7rem; letter-spacing: 0.2em; padding: 18px; }
+/* ═══ ═══ LEADERBOARD SCREEN ═══ ═══ */
+#screen-lb { gap:20px; }
+.lb-wrap { width:min(560px,94vw); }
+.lb-screen-title {
+  font-family:'Orbitron',sans-serif; font-weight:900; font-size:1.6rem;
+  color:var(--yellow); text-shadow:0 0 20px var(--yellow); text-align:center; letter-spacing:0.2em;
+}
+.lb-row-s {
+  display:flex; align-items:center; gap:12px; padding:12px 16px;
+  border-radius:4px; position:relative; overflow:hidden;
+  animation:fadeUp 0.4s ease both; transition:transform 0.2s;
+  border:1px solid rgba(255,255,255,0.08);
+}
+.lb-row-s:hover { transform:translateX(4px); }
+.lb-row-s.me-row { border-color:var(--cyan) !important; background:rgba(0,245,255,0.06); }
+.lb-rank-n { font-family:'Orbitron',sans-serif; font-weight:900; font-size:1.1rem; width:28px; flex-shrink:0; text-align:center; }
+.lb-medal-s { font-size:1.2rem; flex-shrink:0; }
+.lb-name-s { font-family:'Orbitron',sans-serif; font-size:0.85rem; font-weight:700; flex:1; }
+.lb-score-s { font-family:'Orbitron',sans-serif; font-size:1.2rem; font-weight:900; color:var(--cyan); text-shadow:0 0 8px var(--cyan); }
+.lb-bar-bg { position:absolute; bottom:0; left:0; right:0; height:2px; background:rgba(255,255,255,0.04); }
+.lb-bar-fg { height:100%; background:var(--cyan); transition:width 1s cubic-bezier(0.16,1,0.3,1); }
 
-  /* SYNC BAR */
-  .sync-bar {
-    display: flex; align-items: center; gap: 8px;
-    font-size: 0.6rem; letter-spacing: 0.15em; color: rgba(255,255,255,0.3);
-    width: 100%; justify-content: flex-end;
-  }
-  .sync-dot {
-    width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
-    background: var(--neon-green); box-shadow: 0 0 6px var(--neon-green);
-    animation: pulse 2s infinite;
-  }
-  .sync-dot.off { background: #555; box-shadow: none; animation: none; }
-  .sync-dot.connecting { background: var(--neon-yellow); box-shadow: 0 0 6px var(--neon-yellow); }
+/* ═══ ═══ INTRO ═══ ═══ */
+#screen-intro { gap:28px; }
+#screen-intro .panel { padding:32px 36px; width:420px; }
+.intro-desc { font-size:0.85rem; line-height:1.7; color:rgba(255,255,255,0.65); text-align:center; max-width:380px; }
+.round-info { display:flex; flex-direction:column; gap:10px; width:100%; }
+.round-card { background:rgba(255,255,255,0.04); border-radius:4px; padding:14px 16px; border-left:3px solid; }
+.round-card.r1 { border-color:var(--green); }
+.round-card.r2 { border-color:var(--yellow); }
+.round-card .rc-title { font-family:'Orbitron',sans-serif; font-size:0.68rem; font-weight:700; letter-spacing:0.2em; margin-bottom:4px; }
+.round-card.r1 .rc-title { color:var(--green); }
+.round-card.r2 .rc-title { color:var(--yellow); }
+.round-card .rc-desc { font-size:0.78rem; color:rgba(255,255,255,0.5); line-height:1.5; }
 
-  /* LEADERBOARD */
-  #leaderboard-screen { width: 520px; }
-  .lb-title {
-    font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.5rem;
-    letter-spacing: 0.2em; color: var(--neon-yellow); text-shadow: 0 0 20px var(--neon-yellow); text-align: center;
-  }
-  .lb-list { width: 100%; display: flex; flex-direction: column; gap: 8px; }
-  .lb-row {
-    display: flex; align-items: center; gap: 12px;
-    padding: 13px 16px; border-radius: 3px; position: relative;
-    overflow: hidden; transition: transform 0.2s;
-    animation: slideIn 0.4s ease both;
-  }
-  .lb-row:hover { transform: translateX(4px); }
-  .lb-row.rank-1 { border: 1px solid var(--gold); box-shadow: 0 0 20px rgba(255,215,0,0.2); }
-  .lb-row.rank-2 { border: 1px solid var(--silver); box-shadow: 0 0 10px rgba(192,192,192,0.12); }
-  .lb-row.rank-3 { border: 1px solid var(--bronze); }
-  .lb-row.rank-4, .lb-row.rank-5 { border: 1px solid rgba(255,255,255,0.08); }
-  .lb-rank { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.2rem; width: 30px; text-align: center; flex-shrink: 0; }
-  .rank-1 .lb-rank { color: var(--gold); text-shadow: 0 0 12px var(--gold); }
-  .rank-2 .lb-rank { color: var(--silver); }
-  .rank-3 .lb-rank { color: var(--bronze); }
-  .rank-4 .lb-rank, .rank-5 .lb-rank { color: rgba(255,255,255,0.35); }
-  .lb-medal { font-size: 1.3rem; flex-shrink: 0; }
-  .lb-name { font-family: 'Orbitron', sans-serif; font-size: 0.85rem; font-weight: 700; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .rank-1 .lb-name { color: var(--gold); }
-  .rank-2 .lb-name { color: var(--silver); }
-  .rank-3 .lb-name { color: var(--bronze); }
-  .lb-score { font-family: 'Orbitron', sans-serif; font-size: 1.3rem; font-weight: 900; color: var(--neon-cyan); text-shadow: 0 0 10px var(--neon-cyan); flex-shrink: 0; }
-  .rank-1 .lb-score { color: var(--gold); text-shadow: 0 0 14px var(--gold); font-size: 1.5rem; }
-  .lb-bar-wrap { position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background: rgba(255,255,255,0.04); }
-  .lb-bar { height: 100%; background: var(--neon-cyan); transition: width 0.8s cubic-bezier(0.16,1,0.3,1); }
-  .rank-1 .lb-bar { background: var(--gold); }
-  .rank-2 .lb-bar { background: var(--silver); }
-  .rank-3 .lb-bar { background: var(--bronze); }
-  .lb-empty { text-align: center; color: rgba(255,255,255,0.2); letter-spacing: 0.2em; font-size: 0.75rem; padding: 28px; }
-  .lb-updated { font-size: 0.56rem; color: rgba(255,255,255,0.18); letter-spacing: 0.15em; text-align: center; }
-  .lb-me { background: rgba(0,245,255,0.05) !important; }
+/* ═══ ═══ CHARACTER SELECT ═══ ═══ */
+#screen-select { gap:0; }
+.select-layout { display:flex; width:100vw; height:100vh; gap:0; }
 
-  /* NEW ENTRY FLASH */
-  @keyframes flashRow {
-    0% { background: rgba(57,255,20,0.25); }
-    100% { background: transparent; }
-  }
-  .lb-row.flash { animation: flashRow 1s ease, slideIn 0.4s ease both; }
+/* Left panel — character grid */
+.char-grid-panel { width:65%; height:100%; overflow-y:auto; padding:28px; scrollbar-width:thin; scrollbar-color:var(--cyan) transparent; }
+.char-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:16px; }
 
-  /* QR MODAL */
-  #qr-modal {
-    display: none; position: fixed; inset: 0; z-index: 100;
-    background: rgba(0,0,10,0.94); backdrop-filter: blur(12px);
-    align-items: center; justify-content: center; flex-direction: column; gap: 20px;
-  }
-  #qr-modal.open { display: flex; }
-  .qr-box { background: #fff; padding: 16px; border-radius: 6px; box-shadow: 0 0 60px rgba(0,245,255,0.5); }
-  .qr-label { font-family: 'Orbitron', sans-serif; font-size: 0.85rem; letter-spacing: 0.2em; color: var(--neon-cyan); text-align: center; text-shadow: 0 0 10px var(--neon-cyan); }
-  .qr-sub { font-size: 0.62rem; color: rgba(255,255,255,0.3); text-align: center; letter-spacing: 0.1em; }
-  .qr-url { font-size: 0.52rem; color: rgba(255,255,255,0.2); text-align: center; max-width: 300px; word-break: break-all; }
+/* Right panel — team builder */
+.team-panel { width:35%; height:100%; overflow-y:auto; padding:24px 20px; background:rgba(0,0,10,0.7); border-left:1px solid rgba(0,245,255,0.15); scrollbar-width:thin; scrollbar-color:var(--cyan) transparent; }
 
-  /* TOAST */
-  #toast {
-    position: fixed; bottom: 28px; left: 50%;
-    transform: translateX(-50%) translateY(60px);
-    background: var(--neon-green); color: #000;
-    font-family: 'Orbitron', sans-serif; font-size: 0.7rem; font-weight: 700;
-    letter-spacing: 0.12em; padding: 11px 26px; border-radius: 2px;
-    z-index: 999; transition: transform 0.3s cubic-bezier(0.16,1,0.3,1); white-space: nowrap;
-  }
-  #toast.show { transform: translateX(-50%) translateY(0); }
-  #toast.err { background: var(--neon-pink); color: #fff; }
+/* Mini character card */
+.char-mini {
+  border-radius:16px; overflow:hidden; cursor:pointer;
+  transition:all 0.2s; position:relative;
+  box-shadow:0 8px 24px rgba(0,0,0,0.5);
+  border:3px solid transparent;
+}
+.char-mini:hover { transform:translateY(-4px); box-shadow:0 16px 40px rgba(0,0,0,0.7); }
+.char-mini.selected-me  { border-color:#00f5ff !important; box-shadow:0 0 24px rgba(0,245,255,0.8) !important; }
+.char-mini.selected-t1  { border-color:#ff006e !important; box-shadow:0 0 20px rgba(255,0,110,0.6) !important; }
+.char-mini.selected-t2  { border-color:#ffd700 !important; box-shadow:0 0 20px rgba(255,215,0,0.6) !important; }
+.char-mini.used { opacity:0.35; cursor:default; pointer-events:none; }
 
-  /* SCANLINES */
-  body::after {
-    content: ''; position: fixed; inset: 0;
-    background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.04) 2px,rgba(0,0,0,0.04) 4px);
-    pointer-events: none; z-index: 5;
-  }
+.char-mini-bg { padding:10px 10px 8px; }
+.char-mini-svg { width:100%; border-radius:10px; overflow:hidden; border:2px solid rgba(255,255,255,0.25); display:block; }
+.char-mini-svg svg { width:100%; height:auto; display:block; }
+.char-mini-info { padding:8px 10px 10px; }
+.char-mini-name { font-family:'Black Han Sans',sans-serif; font-size:1.3rem; letter-spacing:1px; line-height:1; }
+.char-mini-type { font-size:0.6rem; font-weight:900; letter-spacing:1.5px; opacity:0.7; margin-top:2px; }
+.char-mini-stats { display:flex; gap:3px; margin-top:7px; }
+.stat-pip { height:5px; flex:1; border-radius:3px; opacity:0.8; }
+.char-mini-badge {
+  position:absolute; top:8px; right:8px;
+  font-family:'Orbitron',sans-serif; font-size:0.55rem; font-weight:700;
+  padding:3px 8px; border-radius:10px; letter-spacing:0.1em;
+}
+.badge-me   { background:var(--cyan); color:#000; }
+.badge-t1   { background:var(--pink); color:#fff; }
+.badge-t2   { background:var(--yellow); color:#000; }
 
-  @keyframes flicker { 0%,96%,100%{opacity:1} 97%{opacity:.8} 98%{opacity:1} 99%{opacity:.6} }
-  @keyframes slideIn { from{opacity:0;transform:translateX(-14px)} to{opacity:1;transform:translateX(0)} }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-  @keyframes bump { 0%{transform:scale(1)} 50%{transform:scale(1.14)} 100%{transform:scale(1)} }
-  .score-bump { animation: bump 0.3s ease; }
+/* Team slots */
+.team-header { font-family:'Orbitron',sans-serif; font-size:1.3rem; font-weight:900; color:var(--cyan); text-shadow:0 0 10px var(--cyan); margin-bottom:20px; }
+.team-slot-group { margin-bottom:24px; }
+.slot-label { font-family:'Orbitron',sans-serif; font-size:0.62rem; letter-spacing:0.3em; color:rgba(255,255,255,0.4); margin-bottom:8px; }
+.team-slot {
+  background:rgba(255,255,255,0.04); border-radius:10px; padding:12px 14px;
+  border:1px dashed rgba(255,255,255,0.15); min-height:72px;
+  display:flex; align-items:center; gap:12px; cursor:pointer;
+  transition:all 0.2s; position:relative;
+}
+.team-slot.filled-me  { border:1px solid var(--cyan); background:rgba(0,245,255,0.06); }
+.team-slot.filled-t1  { border:1px solid var(--pink); background:rgba(255,0,110,0.06); }
+.team-slot.filled-t2  { border:1px solid var(--yellow); background:rgba(255,215,0,0.06); }
+.team-slot.active-slot { border-color:rgba(255,255,255,0.5); box-shadow:0 0 12px rgba(255,255,255,0.15); }
+.slot-avatar { width:48px; height:48px; border-radius:8px; overflow:hidden; flex-shrink:0; }
+.slot-avatar svg { width:100%; height:100%; display:block; }
+.slot-placeholder { width:48px; height:48px; border-radius:8px; border:1px dashed rgba(255,255,255,0.2); display:flex; align-items:center; justify-content:center; font-size:1.2rem; color:rgba(255,255,255,0.2); flex-shrink:0; }
+.slot-info { flex:1; }
+.slot-name { font-family:'Black Han Sans',sans-serif; font-size:1.1rem; }
+.slot-type-label { font-size:0.6rem; letter-spacing:1px; opacity:0.6; margin-top:2px; }
+.slot-empty-txt { font-size:0.72rem; color:rgba(255,255,255,0.25); letter-spacing:0.1em; }
+.slot-remove { width:22px; height:22px; border-radius:50%; background:rgba(255,0,110,0.2); border:1px solid var(--pink); color:var(--pink); font-size:0.75rem; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:all 0.15s; }
+.slot-remove:hover { background:var(--pink); color:#fff; }
+
+.select-hint { font-size:0.7rem; color:rgba(255,255,255,0.3); letter-spacing:0.1em; margin-bottom:16px; text-align:center; line-height:1.6; }
+.active-slot-indicator { font-family:'Orbitron',sans-serif; font-size:0.65rem; padding:6px 14px; border-radius:12px; text-align:center; margin-bottom:16px; }
+.asi-me   { background:rgba(0,245,255,0.1); color:var(--cyan); border:1px solid rgba(0,245,255,0.4); }
+.asi-t1   { background:rgba(255,0,110,0.1); color:var(--pink); border:1px solid rgba(255,0,110,0.4); }
+.asi-t2   { background:rgba(255,215,0,0.1); color:var(--yellow); border:1px solid rgba(255,215,0,0.4); }
+.asi-done { background:rgba(57,255,20,0.1); color:var(--green); border:1px solid rgba(57,255,20,0.4); }
+
+/* ═══ ═══ RESULT SCREEN ═══ ═══ */
+#screen-result { overflow-y:auto; }
+.result-wrap { width:min(740px,96vw); margin:0 auto; padding:32px 0; display:flex; flex-direction:column; gap:24px; align-items:center; }
+
+.score-hero { text-align:center; }
+.score-big {
+  font-family:'Orbitron',sans-serif; font-weight:900; font-size:5rem;
+  line-height:1; transition:all 0.5s;
+}
+.score-big.s-excellent { color:var(--green); text-shadow:0 0 30px var(--green),0 0 60px rgba(57,255,20,0.4); }
+.score-big.s-good      { color:var(--cyan);  text-shadow:0 0 30px var(--cyan); }
+.score-big.s-ok        { color:var(--yellow);text-shadow:0 0 20px var(--yellow); }
+.score-big.s-poor      { color:var(--pink);  text-shadow:0 0 20px var(--pink); }
+.score-label { font-family:'Orbitron',sans-serif; font-size:1rem; letter-spacing:0.3em; opacity:0.6; margin-top:6px; }
+.score-verdict { font-size:1.1rem; font-weight:900; margin-top:8px; }
+
+/* Team preview row */
+.team-preview { display:flex; gap:16px; justify-content:center; flex-wrap:wrap; }
+.team-card-mini {
+  background:rgba(255,255,255,0.04); border-radius:14px; padding:14px;
+  width:180px; display:flex; flex-direction:column; gap:8px; align-items:center;
+  border:1px solid rgba(255,255,255,0.1);
+}
+.tcm-svg { width:100px; height:86px; border-radius:10px; overflow:hidden; }
+.tcm-svg svg { width:100%; height:100%; }
+.tcm-name { font-family:'Black Han Sans',sans-serif; font-size:1.1rem; text-align:center; }
+.tcm-color-dot { width:10px; height:10px; border-radius:50%; }
+
+/* Breakdown panel */
+.breakdown { width:100%; }
+.breakdown-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.bk-item { background:rgba(255,255,255,0.03); border-radius:8px; padding:14px 16px; border-left:3px solid; }
+.bk-title { font-family:'Orbitron',sans-serif; font-size:0.62rem; letter-spacing:0.2em; margin-bottom:8px; opacity:0.7; }
+.bk-bar-wrap { background:rgba(255,255,255,0.08); border-radius:6px; height:10px; overflow:hidden; margin-bottom:6px; }
+.bk-bar { height:100%; border-radius:6px; transition:width 1s cubic-bezier(0.16,1,0.3,1); }
+.bk-val { font-family:'Orbitron',sans-serif; font-size:0.75rem; font-weight:700; }
+
+/* Stat radar — simple bars */
+.stat-radar { width:100%; }
+.sr-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+.sr-label { font-size:0.7rem; letter-spacing:0.1em; width:90px; flex-shrink:0; color:rgba(255,255,255,0.6); }
+.sr-bars { flex:1; display:flex; gap:3px; height:12px; }
+.sr-bar { height:100%; border-radius:3px; transition:flex 0.8s cubic-bezier(0.16,1,0.3,1); }
+.sr-val { font-family:'Orbitron',sans-serif; font-size:0.65rem; width:32px; text-align:right; color:rgba(255,255,255,0.5); }
+
+/* Personality ring */
+.personality-row { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+.pers-badge {
+  padding:10px 18px; border-radius:20px; font-family:'Orbitron',sans-serif;
+  font-size:0.7rem; font-weight:700; letter-spacing:0.1em; display:flex; align-items:center; gap:8px;
+}
+.pers-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+
+/* Round tabs */
+.round-tabs { display:flex; gap:10px; }
+.round-tab {
+  font-family:'Orbitron',sans-serif; font-size:0.7rem; font-weight:700;
+  letter-spacing:0.15em; padding:8px 20px; border-radius:3px; cursor:pointer;
+  border:1px solid rgba(255,255,255,0.15); background:transparent; color:rgba(255,255,255,0.4);
+  transition:all 0.2s;
+}
+.round-tab.active.r1 { background:rgba(57,255,20,0.12); border-color:var(--green); color:var(--green); }
+.round-tab.active.r2 { background:rgba(255,215,0,0.12); border-color:var(--yellow); color:var(--yellow); }
+.round-tab:not(.active):hover { background:rgba(255,255,255,0.05); color:rgba(255,255,255,0.7); }
+
+.result-section { width:100%; }
+.result-section.hidden { display:none; }
+
+/* Tips */
+.tips-box { background:rgba(255,255,255,0.03); border-radius:8px; padding:16px; border:1px solid rgba(255,255,255,0.08); }
+.tip-item { font-size:0.8rem; color:rgba(255,255,255,0.55); line-height:1.6; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
+.tip-item:last-child { border:none; }
+.tip-item strong { color:rgba(255,255,255,0.85); }
+
+/* ═══ ANIMATIONS ═══ */
+@keyframes flicker { 0%,95%,100%{opacity:1}96%{opacity:.8}97%{opacity:1}99%{opacity:.6} }
+@keyframes fadeUp { from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)} }
+@keyframes pulse  { 0%,100%{opacity:1}50%{opacity:.45} }
+@keyframes glow   { 0%,100%{box-shadow:0 0 10px currentColor}50%{box-shadow:0 0 30px currentColor} }
+.fade-in { animation:fadeUp 0.5s ease both; }
 </style>
 </head>
 <body>
-<canvas id="bg-canvas"></canvas>
+<canvas id="bg"></canvas>
 
-<div id="app">
-
-  <!-- LOGIN -->
-  <div id="login-screen" class="screen active">
-    <div class="logo">SCORE<br>BOARD</div>
-    <div class="subtitle">// Live Multiplayer Tracker</div>
-    <div class="panel">
-      <div class="panel-title">// PLAYER AUTHENTICATION</div>
-      <input type="text" id="nickname-input" placeholder="ZADEJ NICKNAME..." maxlength="20" autocomplete="off">
-      <br><br>
-      <button class="btn btn-primary" onclick="login()">VSTOUPIT DO ARÉNY</button>
-      <br><br>
-      <button class="btn btn-secondary" onclick="showQR()" style="font-size:0.7rem;">📱 QR KÓD — SDÍLEJ S OSTATNÍMI</button>
-    </div>
-    <div class="sync-bar">
-      <div class="sync-dot connecting" id="sd-login"></div>
-      <span id="sl-login">PŘIPOJOVÁNÍ...</span>
+<!-- ═══════════════ QR SCREEN (projektor) ═══════════════ -->
+<div id="screen-qr" class="screen active">
+  <div class="logo-title" style="font-size:2.4rem;">TEAM FORGE</div>
+  <div class="logo-sub">// Naskenuj a připoj se //</div>
+  <div class="qr-wrap">
+    <div class="qr-box-outer" id="qr-box"></div>
+    <div class="qr-instruction">📱 NASKENUJ QR KÓDEM NA TELEFONU</div>
+    <div class="qr-url-display" id="qr-url-text">https://stepankapko.github.io/cestainovatora/</div>
+    <div class="qr-stats-row">
+      <div class="qr-stat">
+        <div class="qr-stat-val" id="qr-player-count">0</div>
+        <div class="qr-stat-lbl">HRÁČŮ ONLINE</div>
+      </div>
     </div>
   </div>
-
-  <!-- SCORE -->
-  <div id="score-screen" class="screen">
-    <div class="user-header">
-      <div class="user-tag">
-        <span>// HRÁČ</span>
-        <span id="display-name">—</span>
-      </div>
-      <div class="total-score-display">
-        <div class="label">CELKOVÉ BODY</div>
-        <div class="value" id="total-display">0</div>
-      </div>
-    </div>
-
-    <div class="panel" style="padding:18px;">
-      <div class="panel-title">// PŘIDAT SKÓRE</div>
-      <div class="score-row">
-        <input type="number" id="score-input" placeholder="Zadej číslo..." min="-99999" max="999999">
-        <button class="btn btn-green btn-sm" onclick="addScore()">+ ADD</button>
-      </div>
-    </div>
-
-    <div class="panel" style="padding:18px;">
-      <div class="panel-title">// HISTORIE BODŮ</div>
-      <div class="score-history" id="score-history">
-        <div class="empty-history">// ŽÁDNÉ ZÁZNAMY //</div>
-      </div>
-    </div>
-
-    <div class="btn-row">
-      <button class="btn btn-secondary" onclick="goLeaderboard()">🏆 LEADERBOARD</button>
-      <button class="btn btn-secondary btn-sm" onclick="showQR()">📱 QR</button>
-      <button class="btn btn-secondary btn-sm" onclick="logout()">EXIT</button>
-    </div>
-    <div class="sync-bar">
-      <div class="sync-dot connecting" id="sd-score"></div>
-      <span id="sl-score">PŘIPOJOVÁNÍ...</span>
-    </div>
-  </div>
-
-  <!-- LEADERBOARD -->
-  <div id="leaderboard-screen" class="screen">
-    <div class="lb-title">🏆 TOP 5 HRÁČŮ</div>
-    <div class="panel" style="padding:18px;">
-      <div id="lb-list" class="lb-list">
-        <div class="lb-empty">// NAČÍTÁM... //</div>
-      </div>
-    </div>
-    <div class="lb-updated" id="lb-updated">—</div>
-    <div class="btn-row">
-      <button class="btn btn-primary" onclick="goScore()">← ZPĚT</button>
-      <button class="btn btn-secondary btn-sm" onclick="showQR()">📱 QR</button>
-    </div>
-    <div class="sync-bar">
-      <div class="sync-dot connecting" id="sd-lb"></div>
-      <span id="sl-lb">LIVE REAL-TIME</span>
-    </div>
-  </div>
-
+  <button class="btn btn-secondary" style="font-size:0.7rem;" onclick="showScreen('screen-intro')">⚙ SPRÁVCE →</button>
 </div>
 
-<!-- QR MODAL -->
-<div id="qr-modal">
-  <div class="qr-label">📱 NASKENUJ &amp; PŘIPOJ SE</div>
-  <div class="qr-box" id="qr-code-box"></div>
-  <div class="qr-sub">Všichni hráči sdílejí stejný leaderboard</div>
-  <div class="qr-url" id="qr-url-text"></div>
-  <button class="btn btn-primary" style="width:200px;margin-top:6px;" onclick="closeQR()">✕ ZAVŘÍT</button>
+<!-- ═══════════════ NICKNAME ═══════════════ -->
+<div id="screen-nick" class="screen">
+  <div class="logo-title" style="font-size:2.6rem;">TEAM<br>FORGE</div>
+  <div class="logo-sub">// Zadej svůj nickname //</div>
+  <div class="panel">
+    <div class="section-title">// KDO JSI?</div>
+    <input type="text" class="nick-input" id="nick-input" placeholder="TVŮJ NICKNAME..." maxlength="16" autocomplete="off">
+    <br><br>
+    <button class="btn btn-primary" style="width:100%;" onclick="submitNickname()">▶ HRÁT</button>
+    <br><br>
+    <button class="btn btn-secondary" style="width:100%;font-size:0.7rem;" onclick="showLB()">🏆 LEADERBOARD</button>
+  </div>
 </div>
 
-<div id="toast"></div>
+<!-- ═══════════════ LEADERBOARD ═══════════════ -->
+<div id="screen-lb" class="screen">
+  <div class="lb-screen-title">🏆 LEADERBOARD</div>
+  <div class="lb-wrap">
+    <div class="panel" style="padding:18px;">
+      <div id="lb-list-screen" style="display:flex;flex-direction:column;gap:8px;">
+        <div style="text-align:center;color:rgba(255,255,255,0.3);padding:20px;font-size:0.8rem;letter-spacing:0.2em;">// NAČÍTÁM... //</div>
+      </div>
+    </div>
+    <div style="font-size:0.58rem;color:rgba(255,255,255,0.18);letter-spacing:0.15em;text-align:center;margin-top:8px;" id="lb-updated-at">—</div>
+  </div>
+  <div style="display:flex;gap:12px;">
+    <button class="btn btn-primary" onclick="showScreen('screen-nick')">← ZPĚT</button>
+    <button class="btn btn-secondary" style="font-size:0.7rem;" onclick="showScreen('screen-qr')">📺 PROJEKTOR</button>
+    <button class="btn btn-secondary" style="font-size:0.7rem;color:#ff4444;border-color:#ff4444;" onclick="promptReset()">🗑 RESET</button>
+  </div>
+</div>
+
+<!-- ═══════════════ INTRO ═══════════════ -->
+<div id="screen-intro" class="screen">
+  <div class="logo-title" style="font-size:2.4rem;">TEAM<br>FORGE</div>
+  <div class="logo-sub" id="intro-welcome">// Vítej! //</div>
+
+  <div class="panel" style="padding:28px 32px;width:440px;">
+    <div class="section-title">// PRAVIDLA HRY</div>
+    <div class="round-info">
+      <div class="round-card r1">
+        <div class="rc-title">🎯 KOLO 1 — DOVEDNOSTNÍ BALANCE</div>
+        <div class="rc-desc">Vyber svůj charakter a 2 spoluhráče. Hodnotí se jak rovnoměrně pokrýváte všechny 4 dovednosti: Analytika, Komunikace, Tvůrce a Vedení.</div>
+      </div>
+      <div class="round-card r2">
+        <div class="rc-title">🧠 KOLO 2 — OSOBNOSTNÍ DIVERZITA</div>
+        <div class="rc-desc">Přidává se hodnocení osobnostních typů (🔵 🟡 🔴 🟢). Ideální tým má různé barvy — různé perspektivy = silnější tým!</div>
+      </div>
+    </div>
+    <br>
+    <div style="display:flex;gap:12px;">
+      <button class="btn btn-primary" style="flex:1;" onclick="startRound(1)">▶ KOLO 1</button>
+      <button class="btn btn-gold" style="flex:1;" onclick="startRound(2)">⚡ KOLO 2</button>
+    </div>
+  </div>
+  <div style="display:flex;gap:12px;">
+    <button class="btn btn-secondary" style="font-size:0.7rem;" onclick="showLB()">🏆 LEADERBOARD</button>
+    <button class="btn btn-secondary" style="font-size:0.7rem;" onclick="showScreen('screen-nick')">← ZMĚNIT NICKNAME</button>
+  </div>
+</div>
+
+<!-- ═══════════════ SELECT ═══════════════ -->
+<div id="screen-select" class="screen">
+  <div class="select-layout">
+    <!-- Left: character grid -->
+    <div class="char-grid-panel">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:1.4rem;font-weight:900;color:var(--cyan);">VYBER POSTAVY</div>
+        <div id="active-round-badge"></div>
+      </div>
+      <div id="active-slot-indicator" class="active-slot-indicator asi-me">Vyber SEBE (slot 1 ze 3)</div>
+      <div id="char-grid" class="char-grid"></div>
+    </div>
+
+    <!-- Right: team panel -->
+    <div class="team-panel">
+      <div class="team-header">👥 MŮJ TÝM</div>
+
+      <div class="team-slot-group">
+        <div class="slot-label">// TY (povinný slot)</div>
+        <div class="team-slot" id="slot-me" onclick="activateSlot('me')">
+          <div class="slot-placeholder">👤</div>
+          <div class="slot-empty-txt">Vyber svou postavu →</div>
+        </div>
+      </div>
+
+      <div class="team-slot-group">
+        <div class="slot-label">// SPOLUHRÁČ 1</div>
+        <div class="team-slot" id="slot-t1" onclick="activateSlot('t1')">
+          <div class="slot-placeholder">👤</div>
+          <div class="slot-empty-txt">Vyber spoluhráče →</div>
+        </div>
+      </div>
+
+      <div class="team-slot-group">
+        <div class="slot-label">// SPOLUHRÁČ 2</div>
+        <div class="team-slot" id="slot-t2" onclick="activateSlot('t2')">
+          <div class="slot-placeholder">👤</div>
+          <div class="slot-empty-txt">Vyber spoluhráče →</div>
+        </div>
+      </div>
+
+      <div id="select-hint" class="select-hint" style="margin-top:8px;">
+        Klikni na slot → pak vyber postavu vlevo
+      </div>
+
+      <button id="btn-evaluate" class="btn btn-primary" style="width:100%;margin-top:16px;" disabled onclick="evaluateTeam()">
+        ⚡ OHODNOTIT TÝM
+      </button>
+      <button class="btn btn-secondary" style="width:100%;margin-top:10px;font-size:0.7rem;" onclick="showIntro()">← ZPĚT</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ RESULT ═══════════════ -->
+<div id="screen-result" class="screen scrollable">
+  <div class="result-wrap" id="result-content"></div>
+</div>
 
 <script>
-// ══════════════════════════════════════════════════
-// SUPABASE INIT
-// ══════════════════════════════════════════════════
-const SUPABASE_URL = 'https://fyspdabkjtnnvfygnoku.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5c3BkYWJranRubnZmeWdub2t1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1OTgwMjksImV4cCI6MjA4OTE3NDAyOX0.Gey91DqtppEQOJAAEVQWARXJd9z819r8zRugokO_Euk';
-const { createClient } = supabase;
-const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+// ═══════════════════════════════════════════════
+// SUPABASE
+// ═══════════════════════════════════════════════
+const SUPA_URL = 'https://ibgbvyclepaqqcatjxgd.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImliZ2J2eWNsZXBhcXFjYXRqeGdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyOTk5NzAsImV4cCI6MjA4OTg3NTk3MH0.KuRu0n4r-_UzCqiADE5NPHY5n4fTht3JRtcf4OxctlQ';
+const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
 
-// ══════════════════════════════════════════════════
-// THREE.JS BACKGROUND
-// ══════════════════════════════════════════════════
-const canvas = document.getElementById('bg-canvas');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
-camera.position.z = 5;
+// ═══════════════════════════════════════════════
+// APP STATE
+// ═══════════════════════════════════════════════
+let currentNickname = '';
+let currentRound = 1;
+let activeSlot = 'me';
+const team = { me: null, t1: null, t2: null };
 
-const grid = new THREE.GridHelper(40, 40, 0x00f5ff, 0x001020);
-grid.position.y = -2.2; grid.rotation.x = 0.28; scene.add(grid);
-
-const pPos = new Float32Array(100 * 3);
-for (let i = 0; i < 100; i++) { pPos[i*3]=(Math.random()-.5)*20; pPos[i*3+1]=(Math.random()-.5)*10; pPos[i*3+2]=(Math.random()-.5)*10; }
-const pGeo = new THREE.BufferGeometry();
-pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
-const pts = new THREE.Points(pGeo, new THREE.PointsMaterial({color:0x00f5ff,size:0.05,transparent:true,opacity:0.5}));
-scene.add(pts);
-
-function mkSphere(x,y,z,r,c){
-  const m=new THREE.Mesh(new THREE.IcosahedronGeometry(r,1),new THREE.MeshBasicMaterial({color:c,wireframe:true,transparent:true,opacity:0.1}));
-  m.position.set(x,y,z); scene.add(m); return m;
-}
-const sp=[mkSphere(-3,1,-2,1.2,0x00f5ff),mkSphere(3.5,-1,-1,0.8,0xff006e),mkSphere(0,2,-3,1.5,0xffcc00)];
-
-let t=0;
-(function loop(){
-  requestAnimationFrame(loop); t+=0.008;
-  pts.rotation.y=t*0.05;
-  sp[0].rotation.x=t*.4; sp[0].rotation.y=t*.3;
-  sp[1].rotation.z=t*.5; sp[1].rotation.x=t*.2;
-  sp[2].rotation.y=t*.35; sp[2].rotation.z=t*.4;
-  grid.position.z=(t*.3)%1;
-  renderer.render(scene,camera);
-})();
-window.addEventListener('resize',()=>{
-  camera.aspect=window.innerWidth/window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth,window.innerHeight);
-});
-
-// ══════════════════════════════════════════════════
-// STATE
-// ══════════════════════════════════════════════════
-let currentUser = null;
-let localHistory = []; // kept only in-session for current user
-let realtimeSub = null;
-let allPlayers = {}; // id -> { total, history }
-
-// ══════════════════════════════════════════════════
-// UI HELPERS
-// ══════════════════════════════════════════════════
-function show(id){
-  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+// ═══════════════════════════════════════════════
+// SCREEN NAV
+// ═══════════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
 
-function showToast(msg, isErr=false){
-  const el=document.getElementById('toast');
-  el.textContent=msg; el.className='show'+(isErr?' err':'');
-  clearTimeout(el._t); el._t=setTimeout(()=>el.className='',2500);
+function showIntro() {
+  showScreen('screen-intro');
 }
 
-function setStatus(on){
-  const states = on === null ? 'connecting' : on ? '' : 'off';
-  const label = on === null ? 'PŘIPOJOVÁNÍ...' : on ? 'LIVE — real-time sync ✓' : 'OFFLINE';
-  ['login','score','lb'].forEach(id=>{
-    const dot=document.getElementById(`sd-${id}`);
-    const lbl=document.getElementById(`sl-${id}`);
-    if(dot){ dot.className='sync-dot'+(states?' '+states:''); }
-    if(lbl) lbl.textContent=label;
+async function showLB() {
+  showScreen('screen-lb');
+  await renderLBScreen();
+}
+
+// ═══════════════════════════════════════════════
+// QR CODE (generated once on load)
+// ═══════════════════════════════════════════════
+function initQR() {
+  const url = 'https://stepankapko.github.io/cestainovatora/';
+  document.getElementById('qr-url-text').textContent = url;
+  const box = document.getElementById('qr-box');
+  box.innerHTML = '';
+  new QRCode(box, {
+    text: url,
+    width: 240, height: 240,
+    colorDark: '#000000', colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
   });
 }
 
-// ══════════════════════════════════════════════════
-// SUPABASE CRUD
-// ══════════════════════════════════════════════════
-async function fetchAll(){
-  const { data, error } = await db.from('players').select('*');
-  if(error){ console.error(error); return; }
-  allPlayers = {};
-  data.forEach(row => { allPlayers[row.id] = { total: row.total, history: row.history || [] }; });
+// ═══════════════════════════════════════════════
+// NICKNAME
+// ═══════════════════════════════════════════════
+function submitNickname() {
+  const val = document.getElementById('nick-input').value.trim().toUpperCase();
+  if (!val || val.length < 2) { showToast('Zadej nickname (min 2 znaky)!'); return; }
+  currentNickname = val;
+  document.getElementById('intro-welcome').textContent = '// Vítej, ' + val + '! //';
+  showScreen('screen-intro');
 }
 
-async function upsertPlayer(nick, total, history){
-  const { error } = await db.from('players').upsert({
-    id: nick,
-    total: total,
-    history: history,
-    updated_at: new Date().toISOString()
-  }, { onConflict: 'id' });
-  if(error) console.error('upsert error:', error);
-}
-
-// ══════════════════════════════════════════════════
-// REALTIME SUBSCRIPTION
-// ══════════════════════════════════════════════════
-function subscribeRealtime(){
-  if(realtimeSub) db.removeChannel(realtimeSub);
-
-  realtimeSub = db.channel('players-changes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, payload => {
-      const row = payload.new || payload.old;
-      if(!row) return;
-
-      if(payload.eventType === 'DELETE'){
-        delete allPlayers[row.id];
-      } else {
-        allPlayers[row.id] = { total: row.total, history: row.history || [] };
-      }
-
-      // update leaderboard live if visible
-      if(document.getElementById('leaderboard-screen').classList.contains('active')){
-        renderLeaderboard(row.id);
-      }
-      // update score if it's our own data from another device
-      if(currentUser && row.id === currentUser){
-        updateScoreDisplay(false);
-      }
-    })
-    .subscribe(status => {
-      if(status === 'SUBSCRIBED') setStatus(true);
-      else if(status === 'CLOSED' || status === 'CHANNEL_ERROR') setStatus(false);
-      else setStatus(null);
-    });
-}
-
-// ══════════════════════════════════════════════════
-// LOGIN / LOGOUT
-// ══════════════════════════════════════════════════
-async function login(){
-  const nick=document.getElementById('nickname-input').value.trim().toUpperCase();
-  if(!nick){ showToast('⚠ ZADEJ NICKNAME!',true); return; }
-
-  currentUser = nick;
-  // ensure player exists in DB
-  if(!allPlayers[nick]){
-    allPlayers[nick] = { total: 0, history: [] };
-    await upsertPlayer(nick, 0, []);
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('nick-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') submitNickname();
+  });
+  initQR();
+  pollPlayerCount();
+  // QR screen pouze pokud ?projector v URL, jinak rovnou nickname
+  if (!window.location.search.includes('projector')) {
+    showScreen('screen-nick');
   }
-  localHistory = [...(allPlayers[nick].history || [])];
+});
 
-  document.getElementById('display-name').textContent = nick;
-  updateScoreDisplay(false);
-  show('score-screen');
-  document.getElementById('nickname-input').value='';
+// ═══════════════════════════════════════════════
+// SUPABASE — SCORE SAVE
+// ═══════════════════════════════════════════════
+async function saveScoreToSupabase(round1Score, round2Score, teamData) {
+  if (!currentNickname) return;
+  try {
+    // Fetch existing scores first so we never overwrite the other round
+    const { data: existing } = await supa
+      .from('team_scores')
+      .select('round1_score, round2_score')
+      .eq('id', currentNickname)
+      .maybeSingle();
+
+    const payload = {
+      id: currentNickname,
+      nickname: currentNickname,
+      // Keep existing score if this round doesn't provide a new one
+      round1_score: round1Score !== undefined ? round1Score : (existing ? existing.round1_score || 0 : 0),
+      round2_score: round2Score !== undefined ? round2Score : (existing ? existing.round2_score : null),
+      team: teamData,
+      updated_at: new Date().toISOString()
+    };
+
+    const { error } = await supa.from('team_scores').upsert(payload, { onConflict: 'id' });
+    if (error) throw error;
+    showToast('✓ Skóre uloženo!');
+  } catch(e) {
+    console.error('Supabase save error:', e);
+    showToast('⚠ Nepodařilo se uložit skóre');
+  }
 }
 
-function logout(){
-  currentUser = null;
-  localHistory = [];
-  show('login-screen');
+// ═══════════════════════════════════════════════
+// LEADERBOARD SCREEN
+// ═══════════════════════════════════════════════
+async function renderLBScreen() {
+  const container = document.getElementById('lb-list-screen');
+  container.innerHTML = '<div style="text-align:center;color:rgba(255,255,255,0.3);padding:20px;font-size:0.8rem;letter-spacing:0.2em;">// NAČÍTÁM... //</div>';
+
+  const { data, error } = await supa.from('team_scores').select('*').limit(50);
+  if (error || !data || !data.length) {
+    container.innerHTML = '<div style="text-align:center;color:rgba(255,255,255,0.25);padding:20px;font-size:0.8rem;letter-spacing:0.2em;">// ZATÍM ŽÁDNÍ HRÁČI //</div>';
+    return;
+  }
+
+  // Sort by total (r1 + r2), fallback to r1 only
+  data.sort(function(a, b) {
+    const totalA = (a.round1_score || 0) + (a.round2_score || 0);
+    const totalB = (b.round1_score || 0) + (b.round2_score || 0);
+    return totalB - totalA;
+  });
+
+  const medals = ['🥇','🥈','🥉'];
+  const rankColors = ['#ffd700','#c0c0c0','#cd7f32'];
+  const maxTotal = Math.max(1, (data[0].round1_score || 0) + (data[0].round2_score || 0));
+
+  container.innerHTML = data.map(function(row, i) {
+    const r1 = row.round1_score || 0;
+    const r2 = row.round2_score;
+    const total = r1 + (r2 || 0);
+    const isMe = row.nickname === currentNickname;
+    const rankColor = i < 3 ? rankColors[i] : 'rgba(255,255,255,0.3)';
+    const medal = i < 3 ? medals[i] : '';
+    const pct = Math.max(0, (total / maxTotal) * 100);
+    const r2badge = r2 !== null && r2 !== undefined
+      ? '<span style="font-size:0.6rem;opacity:0.55;margin-left:6px;">K1:' + r1 + ' K2:' + r2 + '</span>'
+      : '<span style="font-size:0.6rem;opacity:0.4;margin-left:6px;">K1:' + r1 + '</span>';
+
+    return '<div class="lb-row-s' + (isMe ? ' me-row' : '') + '" style="animation-delay:' + (i*0.06) + 's;' + (i < 3 ? 'border-color:' + rankColors[i] + ';' : '') + '">'
+      + '<div class="lb-rank-n" style="color:' + rankColor + ';">' + (i+1) + '</div>'
+      + '<div class="lb-medal-s">' + medal + '</div>'
+      + '<div class="lb-name-s" style="' + (i < 3 ? 'color:' + rankColors[i] + ';' : '') + '">' + row.nickname + (isMe ? ' 👈' : '') + r2badge + '</div>'
+      + '<div class="lb-score-s" style="' + (i < 3 ? 'color:' + rankColors[i] + ';text-shadow:0 0 10px ' + rankColors[i] + ';' : '') + '">' + total + '</div>'
+      + '<div class="lb-bar-bg"><div class="lb-bar-fg" style="width:' + pct + '%;' + (i < 3 ? 'background:' + rankColors[i] + ';' : '') + '"></div></div>'
+      + '</div>';
+  }).join('');
+
+  document.getElementById('lb-updated-at').textContent = '// AKTUALIZOVÁNO: ' + new Date().toLocaleTimeString('cs-CZ') + ' — ' + data.length + ' hráčů';
 }
 
-// ══════════════════════════════════════════════════
-// SCORE
-// ══════════════════════════════════════════════════
-function updateScoreDisplay(anim=true){
-  if(!currentUser) return;
-  const p = allPlayers[currentUser];
-  if(!p) return;
-  const el=document.getElementById('total-display');
-  el.textContent=p.total;
-  if(anim){ el.classList.remove('score-bump'); void el.offsetWidth; el.classList.add('score-bump'); }
+// Realtime subscription for leaderboard
+supa.channel('team-scores-changes')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'team_scores' }, function() {
+    if (document.getElementById('screen-lb').classList.contains('active')) {
+      renderLBScreen();
+    }
+    pollPlayerCount();
+  })
+  .subscribe();
 
-  const hist=document.getElementById('score-history');
-  const h=p.history||[];
-  if(!h.length){ hist.innerHTML='<div class="empty-history">// ŽÁDNÉ ZÁZNAMY //</div>'; return; }
-  hist.innerHTML=[...h].reverse().map((e,i)=>`
-    <div class="score-entry">
-      <span class="entry-num">#${h.length-i}</span>
-      <span class="entry-val">${e.val>=0?'+':''}${e.val}</span>
-      <span class="entry-time">${e.time}</span>
-    </div>`).join('');
+// Player count for QR screen
+async function pollPlayerCount() {
+  const { count } = await supa.from('team_scores').select('*', { count: 'exact', head: true });
+  const el = document.getElementById('qr-player-count');
+  if (el) el.textContent = count || 0;
 }
 
-async function addScore(){
-  const raw=document.getElementById('score-input').value;
-  if(raw===''||isNaN(Number(raw))){ showToast('⚠ ZADEJ ČÍSLO!',true); return; }
-  const val=parseInt(raw);
-  const now=new Date();
-  const time=`${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
-
-  const p = allPlayers[currentUser];
-  const newTotal = p.total + val;
-  const newHistory = [...(p.history||[]), {val, time}];
-
-  // optimistic update
-  allPlayers[currentUser] = { total: newTotal, history: newHistory };
-  document.getElementById('score-input').value='';
-  updateScoreDisplay(true);
-  showToast(val>=0?`+${val} BODŮ PŘIDÁNO!`:`${val} ODEČTENO!`);
-
-  // push to Supabase → triggers realtime for everyone
-  await upsertPlayer(currentUser, newTotal, newHistory);
+// ═══════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════
+function showToast(msg) {
+  let t = document.getElementById('game-toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'game-toast';
+    t.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(60px);background:#39ff14;color:#000;font-family:Orbitron,sans-serif;font-size:0.72rem;font-weight:700;letter-spacing:0.12em;padding:11px 26px;border-radius:2px;z-index:999;transition:transform 0.3s cubic-bezier(0.16,1,0.3,1);white-space:nowrap;';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.transform = 'translateX(-50%) translateY(0)';
+  clearTimeout(t._t);
+  t._t = setTimeout(function() { t.style.transform = 'translateX(-50%) translateY(60px)'; }, 2500);
 }
 
-// ══════════════════════════════════════════════════
-// LEADERBOARD
-// ══════════════════════════════════════════════════
-function goLeaderboard(){ renderLeaderboard(); show('leaderboard-screen'); }
-function goScore(){ updateScoreDisplay(false); show('score-screen'); }
+// ═══════════════════════════════════════════════
+// RESET LEADERBOARD
+// ═══════════════════════════════════════════════
+const RESET_PASSWORD = 'reset2025';
 
-function renderLeaderboard(flashId=null){
-  const sorted=Object.entries(allPlayers)
-    .sort((a,b)=>b[1].total-a[1].total).slice(0,5);
+function promptReset() {
+  const modal = document.getElementById('reset-modal');
+  modal.style.display = 'flex';
+  document.getElementById('reset-pw-input').value = '';
+  setTimeout(function() { document.getElementById('reset-pw-input').focus(); }, 100);
+}
 
-  document.getElementById('lb-updated').textContent=
-    `// AKTUALIZOVÁNO: ${new Date().toLocaleTimeString('cs-CZ')}`;
+function closeReset() {
+  document.getElementById('reset-modal').style.display = 'none';
+}
 
-  const c=document.getElementById('lb-list');
-  if(!sorted.length){ c.innerHTML='<div class="lb-empty">// ŽÁDNÍ HRÁČI //</div>'; return; }
+async function confirmReset() {
+  const pw = document.getElementById('reset-pw-input').value;
+  if (pw !== RESET_PASSWORD) {
+    showToast('⚠ Špatné heslo!');
+    document.getElementById('reset-pw-input').value = '';
+    document.getElementById('reset-pw-input').focus();
+    return;
+  }
+  try {
+    const { error } = await supa.from('team_scores').delete().neq('id', '___never___');
+    if (error) throw error;
+    closeReset();
+    showToast('✓ Leaderboard resetován!');
+    renderLBScreen();
+  } catch(e) {
+    console.error(e);
+    showToast('⚠ Chyba při mazání');
+  }
+}
 
-  const maxScore=Math.max(1, sorted[0][1].total);
-  const medals=['🥇','🥈','🥉','',''];
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeReset();
+  if (e.key === 'Enter' && document.getElementById('reset-modal').style.display === 'flex') confirmReset();
+});
 
-  c.innerHTML=sorted.map(([nick,data],i)=>{
-    const pct=Math.max(0,(data.total/maxScore)*100);
-    const isMe=nick===currentUser?' lb-me':'';
-    const isFlash=nick===flashId?' flash':'';
-    return `<div class="lb-row rank-${i+1}${isMe}${isFlash}" style="animation-delay:${i*.06}s">
-      <div class="lb-rank">${i+1}</div>
-      <div class="lb-medal">${medals[i]}</div>
-      <div class="lb-name">${nick}</div>
-      <div class="lb-score">${data.total}</div>
-      <div class="lb-bar-wrap"><div class="lb-bar" style="width:${pct}%"></div></div>
+const bgCanvas = document.getElementById('bg');
+const rdr = new THREE.WebGLRenderer({canvas:bgCanvas,antialias:true,alpha:true});
+rdr.setPixelRatio(Math.min(devicePixelRatio,2));
+rdr.setSize(innerWidth,innerHeight);
+const sc = new THREE.Scene(), cam = new THREE.PerspectiveCamera(55,innerWidth/innerHeight,0.1,500);
+cam.position.z = 6;
+
+// Grid
+const grd = new THREE.GridHelper(60,60,0x00f5ff,0x000d1a);
+grd.position.y=-3; grd.rotation.x=0.2; sc.add(grd);
+
+// Particles
+const pp = new Float32Array(150*3);
+for(let i=0;i<150;i++){pp[i*3]=(Math.random()-.5)*30;pp[i*3+1]=(Math.random()-.5)*15;pp[i*3+2]=(Math.random()-.5)*14;}
+const pg=new THREE.BufferGeometry(); pg.setAttribute('position',new THREE.BufferAttribute(pp,3));
+const pts=new THREE.Points(pg,new THREE.PointsMaterial({color:0x00f5ff,size:0.06,transparent:true,opacity:0.45}));
+sc.add(pts);
+
+// Wireframe spheres
+function mksph(x,y,z,r,c){const m=new THREE.Mesh(new THREE.IcosahedronGeometry(r,1),new THREE.MeshBasicMaterial({color:c,wireframe:true,transparent:true,opacity:0.08}));m.position.set(x,y,z);sc.add(m);return m;}
+const sps=[mksph(-4,1,-3,1.4,0x00f5ff),mksph(4.5,-1,-2,1,0xff006e),mksph(0,2.5,-4,1.8,0xffd700),mksph(-2,-2,-1,0.7,0x39ff14)];
+
+let bt=0;
+(function loop(){requestAnimationFrame(loop);bt+=0.007;pts.rotation.y=bt*.04;sps.forEach((s,i)=>{s.rotation.x=bt*(.3+i*.08);s.rotation.y=bt*(.25+i*.06);});grd.position.z=(bt*.25)%1;rdr.render(sc,cam);})();
+window.addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();rdr.setSize(innerWidth,innerHeight);});
+
+// ═══════════════════════════════════════════════
+// GAME DATA — Characters
+// ═══════════════════════════════════════════════
+
+// Palette per theme
+const PALETTES = {
+  blue:   ['#1565c0','#fff176'],
+  yellow: ['#e65100','#fff9c4'],
+  red:    ['#b71c1c','#ffcdd2'],
+  green:  ['#1b5e20','#f0f4c3'],
+};
+
+const THEME_COLORS = {
+  blue:   '#2196f3',
+  yellow: '#f5c800',
+  red:    '#e53935',
+  green:  '#2e7d32',
+};
+
+const THEME_LABELS = {
+  blue:   ['EXTROVERNÍ','EMOCIONÁLNÍ'],
+  yellow: ['EXTROVERNÍ','INTUITIVNÍ'],
+  red:    ['EXTROVERNÍ','MYSLITELSKÝ'],
+  green:  ['INTROVERNÍ','POCITOVÝ'],
+};
+
+const THEME_EMOJI = { blue:'🔵', yellow:'🟡', red:'🔴', green:'🟢' };
+const THEME_NAME  = { blue:'Modrá', yellow:'Žlutá', red:'Červená', green:'Zelená' };
+
+const CHAR_NAMES = [
+  'VIKTOR','LUCIE','TOMAS','PETRA','ONDREJ',
+  'MARKETA','FILIP','RADEK','SIMONA','JAKUB',
+  'NIKOLA','DAVID','ZUZANA','MARTIN','RENATA',
+  'ADAM','EVA','ROMAN','SARKA','PAVEL'
+];
+
+const CHAR_TYPES = ['Warrior','Wizard','Ninja','Archer','Sorceress','Knight','Healer','Berserker','Scholar','Bard'];
+
+// Stats: analytika, komunikace, tvurce, vedeni (0-100 each)
+// We pre-generate 20 unique characters
+function rnd(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+function shuffle(a){const r=[...a];for(let i=r.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]];}return r;}
+
+function genStats(theme){
+  // Each character has 1-2 strong stats and 1 weak stat, colored by theme
+  const themeBonus = {
+    blue:   [0,1,0,0], // strong in komunikace
+    yellow: [0,0,1,0], // strong in tvurce
+    red:    [0,0,0,1], // strong in vedeni
+    green:  [1,0,0,0], // strong in analytika
+  };
+  const stats = [rnd(25,55),rnd(25,55),rnd(25,55),rnd(25,55)];
+  // apply theme bonus
+  const bonus = themeBonus[theme];
+  stats.forEach((v,i)=>{ if(bonus[i]) stats[i]=Math.min(95,stats[i]+rnd(30,45)); });
+  // one random extra strength
+  const extra=Math.floor(Math.random()*4);
+  stats[extra]=Math.min(95,stats[extra]+rnd(15,30));
+  // one weakness
+  const weak=Math.floor(Math.random()*4);
+  stats[weak]=Math.max(5,stats[weak]-rnd(20,35));
+  return stats;
+}
+
+// Character SVG functions (all 10 from original)
+const CHAR_SVGS = [
+  // 0 Warrior
+  (bg,ac)=>`<svg viewBox="0 0 300 260" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="260" fill="${bg}"/><ellipse cx="150" cy="245" rx="60" ry="10" fill="rgba(0,0,0,0.18)"/><rect x="118" y="178" width="22" height="50" rx="10" fill="${ac}"/><rect x="160" y="178" width="22" height="50" rx="10" fill="${ac}"/><ellipse cx="129" cy="228" rx="16" ry="9" fill="#3e2723"/><ellipse cx="171" cy="228" rx="16" ry="9" fill="#3e2723"/><rect x="108" y="110" width="84" height="75" rx="18" fill="${ac}"/><rect x="120" y="118" width="60" height="50" rx="12" fill="rgba(255,255,255,0.18)"/><rect x="80" y="112" width="28" height="55" rx="14" fill="${ac}"/><rect x="192" y="108" width="28" height="55" rx="14" fill="${ac}"/><rect x="222" y="60" width="10" height="90" rx="4" fill="#cfd8dc"/><rect x="210" y="100" width="34" height="8" rx="4" fill="#ffb300"/><ellipse cx="150" cy="72" rx="36" ry="38" fill="#ffcc80"/><path d="M114 68 Q114 30 150 28 Q186 30 186 68 Z" fill="${ac}"/><circle cx="142" cy="68" r="4" fill="white"/><circle cx="158" cy="68" r="4" fill="white"/><circle cx="143" cy="69" r="2.5" fill="#1a237e"/><circle cx="159" cy="69" r="2.5" fill="#1a237e"/><path d="M138 82 Q150 90 162 82" stroke="#bf8040" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>`,
+  // 1 Wizard
+  (bg,ac)=>`<svg viewBox="0 0 300 260" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="260" fill="${bg}"/><ellipse cx="150" cy="248" rx="55" ry="9" fill="rgba(0,0,0,0.18)"/><path d="M100 130 Q90 200 85 248 L215 248 Q210 200 200 130 Z" fill="${ac}"/><text x="150" y="205" text-anchor="middle" font-size="28" fill="rgba(255,255,255,0.3)" font-family="serif">✦</text><path d="M100 135 Q68 155 60 185" stroke="${ac}" stroke-width="24" stroke-linecap="round" fill="none"/><path d="M200 135 Q228 148 238 172" stroke="${ac}" stroke-width="24" stroke-linecap="round" fill="none"/><circle cx="254" cy="80" r="16" fill="#ce93d8" opacity="0.9"/><ellipse cx="150" cy="74" rx="34" ry="36" fill="#ffe082"/><path d="M110 72 Q112 48 150 12 Q188 48 190 72 Z" fill="#1a237e"/><rect x="102" y="70" width="96" height="12" rx="6" fill="#283593"/><circle cx="138" cy="68" r="5" fill="white"/><circle cx="162" cy="68" r="5" fill="white"/><circle cx="139" cy="69" r="3" fill="#4a148c"/><circle cx="163" cy="69" r="3" fill="#4a148c"/></svg>`,
+  // 2 Ninja
+  (bg,ac)=>`<svg viewBox="0 0 300 260" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="260" fill="${bg}"/><ellipse cx="150" cy="247" rx="52" ry="9" fill="rgba(0,0,0,0.2)"/><rect x="116" y="180" width="22" height="52" rx="10" fill="#212121"/><rect x="162" y="180" width="22" height="52" rx="10" fill="#212121"/><rect x="106" y="110" width="88" height="76" rx="18" fill="#212121"/><rect x="106" y="162" width="88" height="12" rx="6" fill="${ac}"/><rect x="76" y="112" width="30" height="56" rx="14" fill="#212121"/><rect x="194" y="108" width="30" height="56" rx="14" fill="#212121"/><ellipse cx="150" cy="72" rx="35" ry="36" fill="#ffcc80"/><path d="M115 75 Q115 100 150 102 Q185 100 185 75 Z" fill="#212121"/><path d="M110 80 Q108 95 115 105 Q130 112 150 112 Q170 112 185 105 Q192 95 190 80" stroke="${ac}" stroke-width="8" fill="none" stroke-linecap="round"/><ellipse cx="138" cy="67" rx="5" ry="4" fill="white"/><ellipse cx="162" cy="67" rx="5" ry="4" fill="white"/><ellipse cx="138" cy="68" rx="3" ry="3" fill="#b71c1c"/><ellipse cx="162" cy="68" rx="3" ry="3" fill="#b71c1c"/><rect x="115" y="52" width="70" height="12" rx="6" fill="${ac}"/></svg>`,
+  // 3 Archer
+  (bg,ac)=>`<svg viewBox="0 0 300 260" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="260" fill="${bg}"/><ellipse cx="150" cy="247" rx="55" ry="9" fill="rgba(0,0,0,0.18)"/><rect x="118" y="178" width="22" height="54" rx="10" fill="#5d4037"/><rect x="160" y="178" width="22" height="54" rx="10" fill="#5d4037"/><rect x="108" y="110" width="84" height="75" rx="18" fill="${ac}"/><rect x="76" y="108" width="30" height="54" rx="14" fill="${ac}"/><path d="M68 85 Q40 130 68 175" stroke="#6d4c41" stroke-width="6" fill="none" stroke-linecap="round"/><line x1="68" y1="130" x2="240" y2="155" stroke="#a1887f" stroke-width="3"/><polygon points="62,127 72,124 70,134" fill="${ac}"/><ellipse cx="150" cy="74" rx="34" ry="36" fill="#ffcc80"/><path d="M116 68 Q118 38 150 34 Q182 38 184 68" fill="#5d4037"/><circle cx="138" cy="70" r="5" fill="white"/><circle cx="162" cy="70" r="5" fill="white"/><circle cx="139" cy="71" r="3" fill="#2e7d32"/><circle cx="163" cy="71" r="3" fill="#2e7d32"/></svg>`,
+  // 4 Sorceress
+  (bg,ac)=>`<svg viewBox="0 0 300 260" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="260" fill="${bg}"/><ellipse cx="150" cy="247" rx="52" ry="9" fill="rgba(0,0,0,0.18)"/><path d="M104 125 Q88 190 82 248 L218 248 Q212 190 196 125 Z" fill="${ac}"/><circle cx="150" cy="170" r="8" fill="#fff176" opacity="0.8"/><path d="M104 128 Q72 155 58 190" stroke="${ac}" stroke-width="26" stroke-linecap="round" fill="none"/><path d="M196 128 Q228 150 244 182" stroke="${ac}" stroke-width="26" stroke-linecap="round" fill="none"/><ellipse cx="150" cy="74" rx="36" ry="37" fill="#ffe0b2"/><path d="M114 68 Q114 38 150 34 Q186 38 186 68" fill="#ad1457"/><circle cx="136" cy="70" r="8" fill="white"/><circle cx="164" cy="70" r="8" fill="white"/><circle cx="137" cy="71" r="5" fill="#6a1b9a"/><circle cx="165" cy="71" r="5" fill="#6a1b9a"/><path d="M118 58 L126 46 L134 56 L142 40 L150 54 L158 40 L166 56 L174 46 L182 58" stroke="#ffd740" stroke-width="3" fill="none" stroke-linejoin="round"/></svg>`,
+  // 5 Knight
+  (bg,ac)=>`<svg viewBox="0 0 300 260" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="260" fill="${bg}"/><ellipse cx="150" cy="247" rx="60" ry="10" fill="rgba(0,0,0,0.2)"/><rect x="114" y="178" width="26" height="52" rx="10" fill="#78909c"/><rect x="160" y="178" width="26" height="52" rx="10" fill="#78909c"/><rect x="104" y="108" width="92" height="78" rx="20" fill="#90a4ae"/><rect x="146" y="118" width="8" height="50" rx="4" fill="${ac}"/><rect x="126" y="135" width="48" height="8" rx="4" fill="${ac}"/><rect x="74" y="118" width="28" height="52" rx="14" fill="#90a4ae"/><rect x="198" y="118" width="28" height="52" rx="14" fill="#90a4ae"/><path d="M52 128 Q44 155 52 178 Q68 195 84 178 Q92 155 84 128 Z" fill="${ac}"/><rect x="222" y="52" width="12" height="110" rx="4" fill="#cfd8dc"/><rect x="210" y="102" width="36" height="10" rx="5" fill="#ffd740"/><path d="M112 80 Q112 36 150 30 Q188 36 188 80 Z" fill="#78909c"/><rect x="112" y="76" width="76" height="16" rx="8" fill="#90a4ae"/><rect x="118" y="78" width="64" height="11" rx="5" fill="#37474f"/><circle cx="138" cy="83" r="5" fill="#ffd740" opacity="0.8"/><circle cx="162" cy="83" r="5" fill="#ffd740" opacity="0.8"/></svg>`,
+  // 6 Healer
+  (bg,ac)=>`<svg viewBox="0 0 300 260" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="260" fill="${bg}"/><ellipse cx="150" cy="247" rx="52" ry="9" fill="rgba(0,0,0,0.18)"/><path d="M106 120 Q94 185 90 248 L210 248 Q206 185 194 120 Z" fill="white" opacity="0.9"/><path d="M106 120 Q94 185 90 248 L210 248 Q206 185 194 120 Z" fill="${ac}" opacity="0.3"/><rect x="146" y="150" width="8" height="40" rx="4" fill="${ac}"/><rect x="132" y="163" width="36" height="8" rx="4" fill="${ac}"/><path d="M106 122 Q76 145 64 178" stroke="white" stroke-width="26" stroke-linecap="round" fill="none" opacity="0.9"/><path d="M194 122 Q222 142 236 172" stroke="white" stroke-width="26" stroke-linecap="round" fill="none" opacity="0.9"/><ellipse cx="150" cy="76" rx="34" ry="36" fill="#ffe0b2"/><circle cx="137" cy="72" r="6" fill="white"/><circle cx="163" cy="72" r="6" fill="white"/><circle cx="138" cy="73" r="4" fill="#1565c0"/><circle cx="164" cy="73" r="4" fill="#1565c0"/><path d="M116 72 Q116 40 150 36 Q184 40 184 72" fill="#ffd54f"/></svg>`,
+  // 7 Berserker
+  (bg,ac)=>`<svg viewBox="0 0 300 260" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="260" fill="${bg}"/><ellipse cx="150" cy="247" rx="62" ry="10" fill="rgba(0,0,0,0.22)"/><rect x="108" y="175" width="28" height="55" rx="10" fill="#4a148c"/><rect x="164" y="175" width="28" height="55" rx="10" fill="#4a148c"/><rect x="100" y="105" width="100" height="78" rx="20" fill="${ac}"/><rect x="62" y="108" width="38" height="62" rx="18" fill="${ac}"/><rect x="200" y="108" width="38" height="62" rx="18" fill="${ac}"/><rect x="240" y="60" width="10" height="100" rx="4" fill="#8d6e63"/><ellipse cx="150" cy="68" rx="40" ry="38" fill="#ffcc80"/><circle cx="136" cy="65" r="7" fill="white"/><circle cx="164" cy="65" r="7" fill="white"/><circle cx="137" cy="66" r="5" fill="#b71c1c"/><circle cx="165" cy="66" r="5" fill="#b71c1c"/><path d="M130 46 Q140 20 150 12 Q160 20 170 46" fill="${ac}"/></svg>`,
+  // 8 Scholar
+  (bg,ac)=>`<svg viewBox="0 0 300 260" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="260" fill="${bg}"/><ellipse cx="150" cy="247" rx="52" ry="9" fill="rgba(0,0,0,0.18)"/><rect x="120" y="180" width="22" height="50" rx="10" fill="#546e7a"/><rect x="158" y="180" width="22" height="50" rx="10" fill="#546e7a"/><rect x="106" y="110" width="88" height="76" rx="18" fill="white" opacity="0.9"/><rect x="116" y="145" width="24" height="28" rx="6" fill="#b0bec5"/><rect x="76" y="112" width="30" height="55" rx="14" fill="white" opacity="0.9"/><rect x="194" y="112" width="30" height="55" rx="14" fill="white" opacity="0.9"/><rect x="46" y="148" width="32" height="42" rx="4" fill="${ac}"/><ellipse cx="150" cy="72" rx="34" ry="36" fill="#ffe0b2"/><circle cx="136" cy="68" r="11" fill="none" stroke="#37474f" stroke-width="3"/><circle cx="164" cy="68" r="11" fill="none" stroke="#37474f" stroke-width="3"/><circle cx="136" cy="69" r="5" fill="white"/><circle cx="164" cy="69" r="5" fill="white"/><circle cx="137" cy="70" r="3" fill="#1a237e"/><circle cx="165" cy="70" r="3" fill="#1a237e"/><path d="M116 62 Q118 34 150 30 Q182 34 184 62" fill="#795548"/></svg>`,
+  // 9 Bard
+  (bg,ac)=>`<svg viewBox="0 0 300 260" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="260" fill="${bg}"/><text x="56" y="80" font-size="22" fill="rgba(255,255,255,0.4)">♪</text><text x="230" y="95" font-size="18" fill="rgba(255,255,255,0.35)">♫</text><ellipse cx="150" cy="247" rx="52" ry="9" fill="rgba(0,0,0,0.18)"/><rect x="118" y="180" width="22" height="50" rx="10" fill="${ac}"/><rect x="160" y="180" width="22" height="50" rx="10" fill="${ac}"/><rect x="106" y="108" width="88" height="78" rx="18" fill="${ac}"/><rect x="74" y="110" width="32" height="55" rx="15" fill="${ac}"/><rect x="194" y="108" width="32" height="55" rx="15" fill="${ac}"/><ellipse cx="150" cy="72" rx="35" ry="37" fill="#ffe0b2"/><path d="M128 66 Q136 60 144 66" stroke="#5d4037" stroke-width="3.5" fill="none" stroke-linecap="round"/><path d="M156 66 Q164 60 172 66" stroke="#5d4037" stroke-width="3.5" fill="none" stroke-linecap="round"/><path d="M115 65 Q118 38 150 33 Q182 38 185 65" fill="#e65100"/><circle cx="118" cy="10" r="8" fill="${ac}"/><circle cx="160" cy="4" r="7" fill="#ffd740"/><circle cx="182" cy="10" r="7" fill="#e53935"/></svg>`,
+];
+
+// Generate 20 characters
+const CHARACTERS = (() => {
+  const themes = shuffle(['blue','blue','yellow','yellow','red','red','green','green','blue','yellow','red','green','blue','yellow','red','green','blue','red','yellow','green']);
+  const names  = shuffle(CHAR_NAMES).slice(0,20);
+  const types  = [...Array(10)].map((_,i)=>i).concat([...Array(10)].map((_,i)=>i));
+  const shuffledTypes = shuffle(types);
+  return names.map((name,i)=>{
+    const theme = themes[i];
+    const [bg,ac] = PALETTES[theme];
+    const typeIdx = shuffledTypes[i];
+    return {
+      id: i, name, theme,
+      typeName: CHAR_TYPES[typeIdx],
+      bg, ac,
+      svg: CHAR_SVGS[typeIdx](bg,ac),
+      stats: genStats(theme), // [analytika, komunikace, tvurce, vedeni]
+    };
+  });
+})();
+
+// ═══════════════════════════════════════════════
+// ROUND & SELECT
+// ═══════════════════════════════════════════════
+function startRound(r){
+  if (!currentNickname) { showScreen('screen-nick'); return; }
+  currentRound = r;
+  team.me=null; team.t1=null; team.t2=null;
+  activeSlot='me';
+  buildCharGrid();
+  updateTeamPanel();
+  document.getElementById('active-round-badge').innerHTML =
+    r===1 ? '<span class="round-badge r1">KOLO 1</span>' : '<span class="round-badge r2">KOLO 2</span>';
+  showScreen('screen-select');
+}
+
+// ═══════════════════════════════════════════════
+// CHARACTER GRID
+// ═══════════════════════════════════════════════
+function buildCharGrid(){
+  const grid = document.getElementById('char-grid');
+  grid.innerHTML = CHARACTERS.map(c=>{
+    const statColors = ['#4dd0e1','#f48fb1','#a5d610','#ffd740'];
+    const pips = c.stats.map((v,i)=>`<div class="stat-pip" style="background:${statColors[i]};flex:${v}"></div>`).join('');
+    return `<div class="char-mini theme-${c.theme}" id="mini-${c.id}" onclick="selectChar(${c.id})" style="background:${THEME_COLORS[c.theme]};">
+      <div class="char-mini-bg">
+        <div class="char-mini-svg">${c.svg}</div>
+      </div>
+      <div class="char-mini-info">
+        <div class="char-mini-name" style="color:white;">${c.name}</div>
+        <div class="char-mini-type" style="color:rgba(255,255,255,0.7);">${c.typeName} · ${THEME_EMOJI[c.theme]}</div>
+        <div class="char-mini-stats">${pips}</div>
+      </div>
     </div>`;
   }).join('');
+  updateGridHighlights();
 }
 
-// ══════════════════════════════════════════════════
-// QR CODE
-// ══════════════════════════════════════════════════
-let qrReady=false;
-function showQR(){
-  const url=window.location.href.split('?')[0].split('#')[0];
-  document.getElementById('qr-url-text').textContent=url;
-  if(!qrReady){
-    const box=document.getElementById('qr-code-box');
-    box.innerHTML='';
-    new QRCode(box,{text:url,width:220,height:220,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
-    qrReady=true;
+function updateGridHighlights(){
+  CHARACTERS.forEach(c=>{
+    const el = document.getElementById(`mini-${c.id}`);
+    if(!el) return;
+    // remove badges
+    const existing = el.querySelector('.char-mini-badge');
+    if(existing) existing.remove();
+    el.className = `char-mini theme-${c.theme}`;
+    el.style.background = THEME_COLORS[c.theme];
+
+    if(team.me?.id===c.id){ el.classList.add('selected-me'); addBadge(el,'ME','badge-me'); }
+    else if(team.t1?.id===c.id){ el.classList.add('selected-t1'); addBadge(el,'T1','badge-t1'); }
+    else if(team.t2?.id===c.id){ el.classList.add('selected-t2'); addBadge(el,'T2','badge-t2'); }
+    // mark used (not the active slot's current char)
+    const usedIds = [team.me,team.t1,team.t2].filter(Boolean).map(x=>x.id);
+    const thisUsedBy = (team.me?.id===c.id?'me':team.t1?.id===c.id?'t1':team.t2?.id===c.id?'t2':null);
+    if(thisUsedBy && thisUsedBy!==activeSlot) el.classList.add('used');
+  });
+}
+
+function addBadge(el,txt,cls){
+  const b=document.createElement('div');
+  b.className=`char-mini-badge ${cls}`;
+  b.textContent=txt;
+  el.appendChild(b);
+}
+
+function selectChar(id){
+  const char = CHARACTERS.find(c=>c.id===id);
+  if(!char) return;
+  // check not used in another slot
+  if(activeSlot!=='me' && team.me?.id===id) return;
+  if(activeSlot!=='t1' && team.t1?.id===id) return;
+  if(activeSlot!=='t2' && team.t2?.id===id) return;
+
+  team[activeSlot] = char;
+
+  // auto-advance slot
+  if(activeSlot==='me' && !team.t1) activateSlot('t1');
+  else if(activeSlot==='t1' && !team.t2) activateSlot('t2');
+  else if(activeSlot==='t2') {
+    // all filled
+    activeSlot = 'done';
+    updateSlotIndicator();
   }
-  document.getElementById('qr-modal').classList.add('open');
+
+  updateTeamPanel();
+  updateGridHighlights();
+  checkReady();
 }
-function closeQR(){ document.getElementById('qr-modal').classList.remove('open'); }
-document.getElementById('qr-modal').addEventListener('click',e=>{
-  if(e.target===document.getElementById('qr-modal')) closeQR();
-});
 
-// ══════════════════════════════════════════════════
-// KEYBOARD
-// ══════════════════════════════════════════════════
-document.getElementById('nickname-input').addEventListener('keydown',e=>{ if(e.key==='Enter') login(); });
-document.addEventListener('keydown',e=>{
-  if(e.key==='Enter'&&document.getElementById('score-screen').classList.contains('active')) addScore();
-  if(e.key==='Escape') closeQR();
-});
+function activateSlot(slot){
+  if(slot==='me'||slot==='t1'||slot==='t2') activeSlot=slot;
+  updateSlotIndicator();
+  // update slot borders
+  ['me','t1','t2'].forEach(s=>{
+    const el=document.getElementById(`slot-${s}`);
+    if(!el) return;
+    el.classList.toggle('active-slot', s===slot);
+  });
+}
 
-// ══════════════════════════════════════════════════
-// BOOT
-// ══════════════════════════════════════════════════
-(async()=>{
-  setStatus(null);
-  await fetchAll();
-  subscribeRealtime();
-})();
+function updateSlotIndicator(){
+  const el = document.getElementById('active-slot-indicator');
+  if(activeSlot==='done'||(!team.me||!team.t1||!team.t2 ? false : true)){
+    if(team.me&&team.t1&&team.t2){
+      el.className='active-slot-indicator asi-done';
+      el.textContent='✓ TÝM KOMPLETNÍ — klikni OHODNOTIT';
+      return;
+    }
+  }
+  const labels = {me:'Vyber SEBE (slot 1/3)',t1:'Vyber SPOLUHRÁČE 1 (slot 2/3)',t2:'Vyber SPOLUHRÁČE 2 (slot 3/3)'};
+  const classes = {me:'asi-me',t1:'asi-t1',t2:'asi-t2'};
+  el.className=`active-slot-indicator ${classes[activeSlot]||'asi-me'}`;
+  el.textContent=labels[activeSlot]||'Vyber postavu';
+}
+
+function updateTeamPanel(){
+  ['me','t1','t2'].forEach(slot=>{
+    const char = team[slot];
+    const el = document.getElementById(`slot-${slot}`);
+    if(!el) return;
+    if(!char){
+      const placeholderIcon = {me:'👤',t1:'👤',t2:'👤'}[slot];
+      const emptyTxt = {me:'Vyber svou postavu →',t1:'Vyber spoluhráče →',t2:'Vyber spoluhráče →'}[slot];
+      el.className='team-slot';
+      el.innerHTML=`<div class="slot-placeholder">${placeholderIcon}</div><div class="slot-empty-txt">${emptyTxt}</div>`;
+    } else {
+      el.className=`team-slot filled-${slot}`;
+      el.innerHTML=`
+        <div class="slot-avatar">${char.svg}</div>
+        <div class="slot-info">
+          <div class="slot-name">${char.name}</div>
+          <div class="slot-type-label">${char.typeName} ${THEME_EMOJI[char.theme]} ${THEME_NAME[char.theme]}</div>
+        </div>
+        <div class="slot-remove" onclick="removeSlot('${slot}',event)" title="Odebrat">✕</div>`;
+    }
+    el.classList.toggle('active-slot', slot===activeSlot);
+  });
+  updateSlotIndicator();
+}
+
+function removeSlot(slot, e){
+  e.stopPropagation();
+  team[slot]=null;
+  activeSlot=slot;
+  updateTeamPanel();
+  updateGridHighlights();
+  checkReady();
+}
+
+function checkReady(){
+  const ready = team.me && team.t1 && team.t2;
+  document.getElementById('btn-evaluate').disabled = !ready;
+  if(ready){
+    document.getElementById('select-hint').textContent='✓ Tým kompletní!';
+    activateSlot('done');
+    ['me','t1','t2'].forEach(s=>document.getElementById(`slot-${s}`)?.classList.remove('active-slot'));
+  }
+}
+
+// ═══════════════════════════════════════════════
+// SCORING ENGINE
+// ═══════════════════════════════════════════════
+function evaluateTeam(){
+  const chars = [team.me, team.t1, team.t2];
+
+  // ── Stat balance (used in both rounds) ──
+  // For each of 4 stats, sum team values
+  const statTotals = [0,1,2,3].map(i => chars.reduce((s,c)=>s+c.stats[i],0));
+  const avgStat = statTotals.reduce((a,b)=>a+b,0)/4;
+  // variance: how spread apart are the 4 stat totals?
+  const variance = statTotals.reduce((s,v)=>s+Math.pow(v-avgStat,2),0)/4;
+  const stdDev = Math.sqrt(variance);
+  // lower stdDev = better balance. Max possible ~120, perfect = 0
+  const statBalanceScore = Math.max(0, 100 - (stdDev/1.2));
+
+  // also check coverage: does each stat have at least one character with >50?
+  const coverage = [0,1,2,3].map(si=>chars.some(c=>c.stats[si]>50)?1:0);
+  const coverageBonus = coverage.reduce((a,b)=>a+b,0) * 5; // 0-20 bonus
+
+  let round1Score = Math.round(Math.min(100, statBalanceScore + coverageBonus));
+
+  // ── Personality diversity (round 2 only) ──
+  const themes = chars.map(c=>c.theme);
+  const uniqueThemes = new Set(themes).size;
+  // 3 unique = full diversity, 2 = partial, 1 = mono
+  const diversityScore = uniqueThemes===3 ? 100 : uniqueThemes===2 ? 60 : 20;
+
+  // Combined round 2 score
+  let round2Score = Math.round(statBalanceScore*0.55 + diversityScore*0.45 + coverageBonus*0.5);
+  round2Score = Math.min(100, round2Score);
+
+  const displayScore = currentRound===1 ? round1Score : round2Score;
+
+  // ── Save to Supabase ──
+  const teamData = {
+    me:  { name: team.me.name,  theme: team.me.theme,  type: team.me.typeName,  stats: team.me.stats  },
+    t1:  { name: team.t1.name,  theme: team.t1.theme,  type: team.t1.typeName,  stats: team.t1.stats  },
+    t2:  { name: team.t2.name,  theme: team.t2.theme,  type: team.t2.typeName,  stats: team.t2.stats  },
+  };
+  saveScoreToSupabase(
+    currentRound===1 ? round1Score : undefined,
+    currentRound===2 ? round2Score : undefined,
+    teamData
+  ).catch(function(){});
+
+  // ── Build result ──
+  showResult({
+    chars, statTotals, statBalanceScore: Math.round(statBalanceScore),
+    coverageBonus, coverage, diversityScore, uniqueThemes, themes,
+    round1Score, round2Score, displayScore, currentRound
+  });
+}
+
+// ═══════════════════════════════════════════════
+// RESULT SCREEN
+// ═══════════════════════════════════════════════
+const STAT_NAMES = ['Analytika','Komunikace','Tvůrce','Vedení'];
+const STAT_COLORS = ['#4dd0e1','#f48fb1','#a5d610','#ffd740'];
+
+function scoreClass(s){
+  if(s>=80) return 's-excellent';
+  if(s>=60) return 's-good';
+  if(s>=40) return 's-ok';
+  return 's-poor';
+}
+function scoreVerdict(s,r){
+  if(r===1){
+    if(s>=80) return '🏆 Výborně vyvážený tým!';
+    if(s>=60) return '✅ Dobrý tým s pár mezerami';
+    if(s>=40) return '⚠️ Průměrná balance — dá se zlepšit';
+    return '❌ Nevyvážený tým — zkuste jiné složení';
+  } else {
+    if(s>=80) return '🌟 Perfektní kombinace — různé dovednosti i osobnosti!';
+    if(s>=60) return '✅ Solidní tým — osobnostní mix mohl být pestřejší';
+    if(s>=40) return '⚠️ Slabá diverzita — příliš podobné typy';
+    return '❌ Mono-tým — chybí různé perspektivy';
+  }
+}
+
+function showResult(data){
+  showScreen('screen-result');
+  const c = document.getElementById('result-content');
+  const {chars,statTotals,statBalanceScore,coverageBonus,coverage,diversityScore,uniqueThemes,themes,round1Score,round2Score,displayScore,currentRound:rnd} = data;
+
+  const sc = scoreClass(displayScore);
+  const vd = scoreVerdict(displayScore,rnd);
+
+  // Team preview cards
+  const slotColors = [['var(--cyan)','Ty'],['var(--pink)','Spoluhráč 1'],['var(--yellow)','Spoluhráč 2']];
+  const teamPreviewHTML = chars.map(function(c2,i){
+    return '<div class="team-card-mini fade-in" style="animation-delay:' + (i*.1) + 's;border:1px solid ' + slotColors[i][0] + ';">'
+      + '<div style="font-size:0.6rem;letter-spacing:0.2em;color:' + slotColors[i][0] + ';font-family:Orbitron,sans-serif;">' + slotColors[i][1] + '</div>'
+      + '<div class="tcm-svg">' + c2.svg + '</div>'
+      + '<div class="tcm-name">' + c2.name + '</div>'
+      + '<div style="display:flex;align-items:center;gap:6px;font-size:0.7rem;opacity:0.6;">'
+      + '<div class="tcm-color-dot" style="background:' + THEME_COLORS[c2.theme] + ';"></div>'
+      + c2.typeName + '</div></div>';
+  }).join('');
+
+  // Stat radar — each stat has 3 mini bars (one per char)
+  const charBarColors = ['rgba(0,245,255,0.7)','rgba(255,0,110,0.7)','rgba(255,215,0,0.7)'];
+  const statRadarHTML = STAT_NAMES.map(function(name,si){
+    const bars = chars.map(function(c2,ci){
+      return '<div class="sr-bar" style="background:' + charBarColors[ci] + ';flex:' + c2.stats[si] + '" title="' + c2.name + ': ' + c2.stats[si] + '%"></div>';
+    }).join('');
+    return '<div class="sr-row">'
+      + '<div class="sr-label">' + name + '</div>'
+      + '<div class="sr-bars">' + bars + '</div>'
+      + '<div class="sr-val">' + Math.round(statTotals[si]/3) + '%</div>'
+      + '</div>';
+  }).join('');
+
+  // Stat balance breakdown
+  const statBreakHTML = STAT_NAMES.map(function(name,si){
+    return '<div class="bk-item fade-in" style="border-color:' + STAT_COLORS[si] + ';animation-delay:' + (si*.08) + 's;">'
+      + '<div class="bk-title" style="color:' + STAT_COLORS[si] + ';">' + name + '</div>'
+      + '<div class="bk-bar-wrap"><div class="bk-bar" style="background:' + STAT_COLORS[si] + ';width:' + Math.round(statTotals[si]/3) + '%"></div></div>'
+      + '<div class="bk-val" style="color:' + STAT_COLORS[si] + ';">' + Math.round(statTotals[si]/3) + '% průměr ' + (coverage[si]?'✓':'⚠') + '</div>'
+      + '</div>';
+  }).join('');
+
+  // Personality badges
+  const themeCount = {};
+  themes.forEach(function(t){themeCount[t]=(themeCount[t]||0)+1;});
+  const persHTML = Object.entries(themeCount).map(function(entry){
+    const t=entry[0], cnt=entry[1];
+    return '<div class="pers-badge" style="background:' + THEME_COLORS[t] + '22;border:1px solid ' + THEME_COLORS[t] + ';">'
+      + '<div class="pers-dot" style="background:' + THEME_COLORS[t] + ';"></div>'
+      + THEME_EMOJI[t] + ' ' + THEME_NAME[t] + ' × ' + cnt + '</div>';
+  }).join('');
+
+  // Tips
+  const tips = genTips(data);
+  const tipsHTML = tips.map(t=>`<div class="tip-item">💡 ${t}</div>`).join('');
+
+  // Round 2 extra section
+  let r2extra = '';
+  if(rnd===2){
+    const diversityMsg = uniqueThemes===3
+      ? '✅ Perfektní! Máš všechny různé osobnostní typy'
+      : uniqueThemes===2
+        ? '⚠️ Máš jen 2 typy — zkus přidat třetí barvu'
+        : '❌ Všichni stejný typ — tým postrádá různé perspektivy';
+    r2extra = '<div class="result-section fade-in">'
+      + '<div class="section-title">// OSOBNOSTNÍ DIVERZITA</div>'
+      + '<div class="panel" style="padding:18px;">'
+      + '<div class="personality-row" style="margin-bottom:14px;">' + persHTML + '</div>'
+      + '<div class="bk-item" style="border-color:var(--yellow);">'
+      + '<div class="bk-title" style="color:var(--yellow);">DIVERZITA TYPŮ</div>'
+      + '<div class="bk-bar-wrap"><div class="bk-bar" style="background:var(--yellow);width:' + diversityScore + '%"></div></div>'
+      + '<div class="bk-val" style="color:var(--yellow);">' + uniqueThemes + '/3 různé typy — ' + diversityScore + 'b</div>'
+      + '</div>'
+      + '<div style="margin-top:10px;font-size:0.75rem;color:rgba(255,255,255,0.45);line-height:1.6;">' + diversityMsg + '</div>'
+      + '</div></div>';
+  }
+
+  const roundBadgeClass = rnd===1 ? 'r1' : 'r2';
+  const roundBadgeText  = rnd===1 ? 'KOLO 1 — DOVEDNOSTNÍ BALANCE' : 'KOLO 2 — KOMPLEXNÍ HODNOCENÍ';
+  const tab2btn   = rnd===2 ? '<button class="round-tab r2" id="tab-r2" onclick="switchTab(\'r2\')">KOLO 2</button>' : '';
+  const tab2panel = rnd===2 ? '<div id="tab-content-r2" class="result-section hidden">' + r2extra + '</div>' : '';
+  const otherRound     = rnd===1 ? 2 : 1;
+  const otherRoundText = rnd===1 ? '⚡ Jít na Kolo 2' : '🎯 Jít na Kolo 1';
+
+  c.innerHTML = '<div class="score-hero fade-in">'
+    + '<div class="round-badge ' + roundBadgeClass + '" style="margin-bottom:14px;">' + roundBadgeText + '</div>'
+    + '<div class="score-big ' + sc + '">' + displayScore + '</div>'
+    + '<div class="score-label">/ 100 BODŮ</div>'
+    + '<div class="score-verdict">' + vd + '</div>'
+    + '</div>'
+
+    + '<div class="team-preview">' + teamPreviewHTML + '</div>'
+
+    + '<div class="round-tabs">'
+    + '<button class="round-tab active r1" id="tab-r1" onclick="switchTab(\'r1\')">KOLO 1</button>'
+    + tab2btn
+    + '</div>'
+
+    + '<div id="tab-content-r1" class="result-section">'
+    + '<div class="section-title">// DOVEDNOSTNÍ PROFIL TÝMU</div>'
+    + '<div class="panel" style="padding:16px 20px;margin-bottom:16px;"><div class="stat-radar">' + statRadarHTML + '</div></div>'
+    + '<div class="section-title">// POKRYTÍ DOVEDNOSTÍ</div>'
+    + '<div class="breakdown-grid">' + statBreakHTML + '</div>'
+    + '<div style="margin-top:12px;">'
+    + '<div class="bk-item" style="border-color:var(--green);">'
+    + '<div class="bk-title" style="color:var(--green);">CELKOVÁ BALANCE</div>'
+    + '<div class="bk-bar-wrap"><div class="bk-bar" style="background:var(--green);width:' + statBalanceScore + '%"></div></div>'
+    + '<div class="bk-val" style="color:var(--green);">' + statBalanceScore + ' bodů + ' + coverageBonus + ' bonus za pokrytí = ' + round1Score + ' celkem</div>'
+    + '</div></div></div>'
+
+    + tab2panel
+
+    + '<div class="result-section fade-in">'
+    + '<div class="section-title">// TIPY PRO ZLEPŠENÍ</div>'
+    + '<div class="tips-box">' + tipsHTML + '</div>'
+    + '</div>'
+
+    + '<div class="btn-row fade-in" style="display:flex;gap:10px;justify-content:center;width:100%;padding-bottom:20px;flex-wrap:wrap;">'
+    + '<button class="btn btn-primary" onclick="startRound(' + rnd + ')">🔄 ZKUSIT ZNOVU</button>'
+    + '<button class="btn btn-secondary" onclick="startRound(' + otherRound + ')">' + otherRoundText + '</button>'
+    + '<button class="btn btn-gold" onclick="showLB()">🏆 LEADERBOARD</button>'
+    + '<button class="btn btn-secondary" style="font-size:0.7rem;" onclick="showScreen(\'screen-intro\')">← MENU</button>'
+    + '</div>';
+
+  // slight delay for bar animations
+  setTimeout(()=>{
+    document.querySelectorAll('.bk-bar,.sr-bar,.lb-bar').forEach(b=>b.style.transition='width 1s cubic-bezier(0.16,1,0.3,1)');
+  },100);
+}
+
+function switchTab(tab){
+  document.querySelectorAll('.round-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(`tab-r1`).classList.toggle('active',tab==='r1');
+  const t2 = document.getElementById('tab-r2');
+  if(t2) t2.classList.toggle('active',tab==='r2');
+  const c1=document.getElementById('tab-content-r1');
+  const c2=document.getElementById('tab-content-r2');
+  if(c1) c1.classList.toggle('hidden',tab!=='r1');
+  if(c2) c2.classList.toggle('hidden',tab!=='r2');
+}
+
+function genTips(data){
+  const {chars,statTotals,coverage,uniqueThemes,currentRound:rnd} = data;
+  const tips = [];
+  const statNames=['Analytiku','Komunikaci','Tvůrce','Vedení'];
+  coverage.forEach((ok,i)=>{ if(!ok) tips.push(`Nikdo v týmu nemá silnou <strong>${statNames[i]}</strong> (>50%) — přidej odborníka.`); });
+  const maxStat=Math.max(...statTotals), minStat=Math.min(...statTotals);
+  const maxIdx=statTotals.indexOf(maxStat), minIdx=statTotals.indexOf(minStat);
+  if(maxStat-minStat>80) tips.push(`Tým je příliš silný v <strong>${statNames[maxIdx]}</strong>, ale slabý v <strong>${statNames[minIdx]}</strong>.`);
+  if(rnd===2&&uniqueThemes<3){
+    const presentThemes=new Set(chars.map(c=>c.theme));
+    const missing=['blue','yellow','red','green'].filter(t=>!presentThemes.has(t));
+    tips.push(`Chybí ti <strong>${missing.map(t=>THEME_EMOJI[t]+' '+THEME_NAME[t]).join(', ')}</strong> osobnostní typ${missing.length>1?'y':''}.`);
+  }
+  if(tips.length===0) tips.push('Skvělé složení! Zkus vyměnit jednu postavu a sleduj, jak se skóre změní.');
+  return tips.slice(0,4);
+}
 </script>
+<!-- ═══════════════ RESET MODAL ═══════════════ -->
+<div id="reset-modal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,10,0.95);backdrop-filter:blur(12px);align-items:center;justify-content:center;flex-direction:column;gap:20px;">
+  <div style="font-family:'Orbitron',sans-serif;font-size:1.2rem;font-weight:900;color:#ff4444;text-shadow:0 0 20px #ff4444;letter-spacing:0.15em;">⚠ RESET LEADERBOARDU</div>
+  <div style="font-size:0.8rem;color:rgba(255,255,255,0.5);text-align:center;max-width:300px;line-height:1.6;">Tato akce smaže všechna skóre všech hráčů. Zadej heslo pro potvrzení.</div>
+  <div class="panel" style="padding:24px 28px;width:340px;display:flex;flex-direction:column;gap:14px;">
+    <input type="password" id="reset-pw-input" placeholder="HESLO..." style="background:rgba(255,68,68,0.08);border:1px solid rgba(255,68,68,0.4);border-radius:2px;color:#fff;font-family:'Share Tech Mono',monospace;font-size:1.1rem;padding:12px 14px;width:100%;outline:none;letter-spacing:0.1em;" autocomplete="off">
+    <button class="btn" style="background:#ff4444;color:#fff;width:100%;" onclick="confirmReset()">🗑 SMAZAT VŠE</button>
+    <button class="btn btn-secondary" style="width:100%;font-size:0.75rem;" onclick="closeReset()">ZRUŠIT</button>
+  </div>
+</div>
+
 </body>
 </html>
