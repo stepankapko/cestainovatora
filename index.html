@@ -52,6 +52,26 @@ body::after { content:''; position:fixed; inset:0; background:repeating-linear-g
 }
 .round-badge.r1 { background:rgba(57,255,20,0.15); border:1px solid var(--green); color:var(--green); }
 .round-badge.r2 { background:rgba(255,215,0,0.15); border:1px solid var(--yellow); color:var(--yellow); }
+.round-badge.r3 { background:rgba(255,0,110,0.15); border:1px solid var(--pink); color:var(--pink); }
+
+.round-card.r3 { border-color:var(--pink); }
+.round-card.r3 .rc-title { color:var(--pink); }
+
+.round-card.locked {
+  opacity:0.45; cursor:default;
+  filter: grayscale(0.4);
+  position:relative;
+}
+.lock-badge {
+  display:inline-block; font-size:0.65rem; letter-spacing:0.15em;
+  color:rgba(255,255,255,0.35); margin-top:4px;
+}
+.round-card.done { border-color:rgba(57,255,20,0.5) !important; }
+.round-card.done .rc-title { color:var(--green) !important; }
+.done-score {
+  font-family:'Orbitron',sans-serif; font-size:0.75rem; font-weight:700;
+  color:var(--green); margin-top:4px; letter-spacing:0.1em;
+}
 
 /* ═══ PANEL ═══ */
 .panel {
@@ -367,27 +387,15 @@ body::after { content:''; position:fixed; inset:0; background:repeating-linear-g
   <div class="logo-title" style="font-size:2.4rem;">TEAM<br>FORGE</div>
   <div class="logo-sub" id="intro-welcome">// Vítej! //</div>
 
-  <div class="panel" style="padding:28px 32px;width:440px;">
-    <div class="section-title">// PRAVIDLA HRY</div>
-    <div class="round-info">
-      <div class="round-card r1">
-        <div class="rc-title">🎯 KOLO 1 — DOVEDNOSTNÍ BALANCE</div>
-        <div class="rc-desc">Vyber svůj charakter a 2 spoluhráče. Hodnotí se jak rovnoměrně pokrýváte všechny 4 dovednosti: Analytika, Komunikace, Tvůrce a Vedení.</div>
-      </div>
-      <div class="round-card r2">
-        <div class="rc-title">🧠 KOLO 2 — OSOBNOSTNÍ DIVERZITA</div>
-        <div class="rc-desc">Přidává se hodnocení osobnostních typů (🔵 🟡 🔴 🟢). Ideální tým má různé barvy — různé perspektivy = silnější tým!</div>
-      </div>
-    </div>
-    <br>
-    <div style="display:flex;gap:12px;">
-      <button class="btn btn-primary" style="flex:1;" onclick="startRound(1)">▶ KOLO 1</button>
-      <button class="btn btn-gold" style="flex:1;" onclick="startRound(2)">⚡ KOLO 2</button>
+  <div class="panel" style="padding:24px 28px;width:460px;">
+    <div class="section-title">// VYBER KOLO</div>
+    <div class="round-info" id="round-cards">
+      <!-- dynamicky vyplněno JS -->
     </div>
   </div>
   <div style="display:flex;gap:12px;">
     <button class="btn btn-secondary" style="font-size:0.7rem;" onclick="showLB()">🏆 LEADERBOARD</button>
-    <button class="btn btn-secondary" style="font-size:0.7rem;" onclick="showScreen('screen-nick')">← ZMĚNIT NICKNAME</button>
+    <button class="btn btn-secondary" style="font-size:0.7rem;" onclick="clearSession()">← ZMĚNIT NICKNAME</button>
   </div>
 </div>
 
@@ -464,6 +472,9 @@ let currentNickname = '';
 let currentRound = 1;
 let activeSlot = 'me';
 const team = { me: null, t1: null, t2: null };
+// Sledování dokončených kol — odemyká přístup k dalším
+const completedRounds = { 1: false, 2: false, 3: false };
+const roundScores = { 1: null, 2: null, 3: null };
 
 // ═══════════════════════════════════════════════
 // SCREEN NAV
@@ -474,7 +485,57 @@ function showScreen(id) {
 }
 
 function showIntro() {
+  renderRoundCards();
   showScreen('screen-intro');
+}
+
+function renderRoundCards() {
+  const ROUND_DEF = [
+    {
+      r: 1,
+      title: '🎯 KOLO 1 — DOVEDNOSTNÍ BALANCE',
+      desc: 'Sestav tým 3 postav. Hodnotí se, jak rovnoměrně pokrýváte Pečlivost, Nápady a Spolupráci.',
+      cls: 'r1', btnTxt: '▶ HRÁT KOLO 1',
+    },
+    {
+      r: 2,
+      title: '🧠 KOLO 2 — DOVEDNOSTI + OSOBNOSTI',
+      desc: 'Stejné sestavení, ale navíc se hodnotí různorodost osobnostních typů (🔵🟡🔴🟢). Různé barvy = bonus!',
+      cls: 'r2', btnTxt: '▶ HRÁT KOLO 2',
+    },
+    {
+      r: 3,
+      title: '🏆 KOLO 3 — FINÁLNÍ VÝZVA',
+      desc: 'Opět dovednosti + osobnosti, ale teď už víš co děláš. Dokážeš dosáhnout lepšího skóre než v Kole 2?',
+      cls: 'r3', btnTxt: '▶ HRÁT KOLO 3',
+    },
+  ];
+
+  const container = document.getElementById('round-cards');
+  container.innerHTML = ROUND_DEF.map(function(def) {
+    const unlocked = def.r === 1 || completedRounds[def.r - 1];
+    const done = completedRounds[def.r];
+    const score = roundScores[def.r];
+
+    let cardCls = 'round-card ' + def.cls;
+    if (!unlocked) cardCls += ' locked';
+    if (done) cardCls += ' done';
+
+    const btnHtml = unlocked
+      ? (done ? '' : '<button class="btn btn-' + (def.r===1?'primary':def.r===2?'gold':'') + (def.r===3?' btn-secondary':'') + '" style="width:100%;margin-top:10px;' + (def.r===3?'color:var(--pink);border-color:var(--pink);':'') + '" onclick="startRound(' + def.r + ')">' + def.btnTxt + '</button>')
+      : '<div class="lock-badge">🔒 Dokonči Kolo ' + (def.r-1) + ' pro odemčení</div>';
+
+    const doneHtml = done && score !== null
+      ? '<div class="done-score">✓ Tvé skóre: ' + score + ' / 100</div>'
+      : '';
+
+    return '<div class="' + cardCls + '">'
+      + '<div class="rc-title">' + def.title + '</div>'
+      + '<div class="rc-desc">' + def.desc + '</div>'
+      + doneHtml
+      + btnHtml
+      + '</div>';
+  }).join('');
 }
 
 async function showLB() {
@@ -501,12 +562,25 @@ function initQR() {
 // ═══════════════════════════════════════════════
 // NICKNAME
 // ═══════════════════════════════════════════════
+function clearSession() {
+  localStorage.removeItem('tf_nickname');
+  localStorage.removeItem('tf_rounds');
+  currentNickname = '';
+  completedRounds[1] = false; completedRounds[2] = false; completedRounds[3] = false;
+  roundScores[1] = null; roundScores[2] = null; roundScores[3] = null;
+  document.getElementById('nick-input').value = '';
+  showScreen('screen-nick');
+}
+
 function submitNickname() {
   const val = document.getElementById('nick-input').value.trim().toUpperCase();
   if (!val || val.length < 2) { showToast('Zadej nickname (min 2 znaky)!'); return; }
   currentNickname = val;
   document.getElementById('intro-welcome').textContent = '// Vítej, ' + val + '! //';
-  showScreen('screen-intro');
+  document.getElementById('nick-input').value = '';
+  // Ulož do localStorage
+  localStorage.setItem('tf_nickname', val);
+  startRound(1);
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -515,41 +589,69 @@ document.addEventListener('DOMContentLoaded', function() {
   });
   initQR();
   pollPlayerCount();
-  // QR screen pouze pokud ?projector v URL, jinak rovnou nickname
-  if (!window.location.search.includes('projector')) {
-    showScreen('screen-nick');
+
+  // Obnov session z localStorage
+  const savedNick = localStorage.getItem('tf_nickname');
+  if (savedNick) {
+    currentNickname = savedNick;
+    document.getElementById('nick-input').value = savedNick;
+    document.getElementById('intro-welcome').textContent = '// Vítej zpět, ' + savedNick + '! //';
+    // Obnov dokončená kola
+    try {
+      const saved = JSON.parse(localStorage.getItem('tf_rounds') || '{}');
+      if (saved.completed) Object.assign(completedRounds, saved.completed);
+      if (saved.scores) Object.assign(roundScores, saved.scores);
+    } catch(e) {}
+    // Jdi rovnou na intro menu pokud má dokončená kola, jinak na kolo 1
+    if (completedRounds[1]) {
+      renderRoundCards();
+      showScreen('screen-intro');
+    } else {
+      startRound(1);
+    }
+  } else {
+    // QR screen pouze pokud ?projector v URL
+    if (!window.location.search.includes('projector')) {
+      showScreen('screen-nick');
+    }
   }
 });
 
 // ═══════════════════════════════════════════════
 // SUPABASE — SCORE SAVE
 // ═══════════════════════════════════════════════
-async function saveScoreToSupabase(round1Score, round2Score, teamData) {
+async function saveScoreToSupabase(round1Score, round2Score, round3Score, teamData) {
   if (!currentNickname) return;
   try {
-    // Fetch existing scores first so we never overwrite the other round
-    const { data: existing } = await supa
+    // Načti existující skóre
+    const existingRes = await supa
       .from('team_scores')
-      .select('round1_score, round2_score')
+      .select('round1_score, round2_score, round3_score')
       .eq('id', currentNickname)
       .maybeSingle();
+
+    const existing = existingRes.data;
 
     const payload = {
       id: currentNickname,
       nickname: currentNickname,
-      // Keep existing score if this round doesn't provide a new one
       round1_score: round1Score !== undefined ? round1Score : (existing ? existing.round1_score || 0 : 0),
       round2_score: round2Score !== undefined ? round2Score : (existing ? existing.round2_score : null),
+      round3_score: round3Score !== undefined ? round3Score : (existing ? existing.round3_score : null),
       team: teamData,
       updated_at: new Date().toISOString()
     };
 
-    const { error } = await supa.from('team_scores').upsert(payload, { onConflict: 'id' });
-    if (error) throw error;
-    showToast('✓ Skóre uloženo!');
+    const res = await supa.from('team_scores').upsert(payload, { onConflict: 'id' });
+    if (res.error) {
+      console.warn('Supabase upsert error:', res.error.message);
+      showToast('⚠ Skóre se neuložilo');
+    } else {
+      showToast('✓ Skóre uloženo!');
+    }
   } catch(e) {
-    console.error('Supabase save error:', e);
-    showToast('⚠ Nepodařilo se uložit skóre');
+    // V iframe preview fetch nefunguje — na Netlify bude OK
+    console.warn('Supabase nedostupná (preview?):', e.message || e);
   }
 }
 
@@ -566,33 +668,36 @@ async function renderLBScreen() {
     return;
   }
 
-  // Sort by total (r1 + r2), fallback to r1 only
+  // Sort by total (r1 + r2 + r3)
   data.sort(function(a, b) {
-    const totalA = (a.round1_score || 0) + (a.round2_score || 0);
-    const totalB = (b.round1_score || 0) + (b.round2_score || 0);
+    const totalA = (a.round1_score || 0) + (a.round2_score || 0) + (a.round3_score || 0);
+    const totalB = (b.round1_score || 0) + (b.round2_score || 0) + (b.round3_score || 0);
     return totalB - totalA;
   });
 
   const medals = ['🥇','🥈','🥉'];
   const rankColors = ['#ffd700','#c0c0c0','#cd7f32'];
-  const maxTotal = Math.max(1, (data[0].round1_score || 0) + (data[0].round2_score || 0));
+  const maxTotal = Math.max(1, (data[0].round1_score || 0) + (data[0].round2_score || 0) + (data[0].round3_score || 0));
 
   container.innerHTML = data.map(function(row, i) {
     const r1 = row.round1_score || 0;
-    const r2 = row.round2_score;
-    const total = r1 + (r2 || 0);
+    const r2 = row.round2_score || 0;
+    const r3 = row.round3_score || 0;
+    const total = r1 + r2 + r3;
     const isMe = row.nickname === currentNickname;
     const rankColor = i < 3 ? rankColors[i] : 'rgba(255,255,255,0.3)';
     const medal = i < 3 ? medals[i] : '';
     const pct = Math.max(0, (total / maxTotal) * 100);
-    const r2badge = r2 !== null && r2 !== undefined
-      ? '<span style="font-size:0.6rem;opacity:0.55;margin-left:6px;">K1:' + r1 + ' K2:' + r2 + '</span>'
-      : '<span style="font-size:0.6rem;opacity:0.4;margin-left:6px;">K1:' + r1 + '</span>';
+    const badge = '<span style="font-size:0.58rem;opacity:0.5;margin-left:6px;">'
+      + 'K1:' + r1
+      + (row.round2_score !== null && row.round2_score !== undefined ? ' K2:' + r2 : '')
+      + (row.round3_score !== null && row.round3_score !== undefined ? ' K3:' + r3 : '')
+      + '</span>';
 
     return '<div class="lb-row-s' + (isMe ? ' me-row' : '') + '" style="animation-delay:' + (i*0.06) + 's;' + (i < 3 ? 'border-color:' + rankColors[i] + ';' : '') + '">'
       + '<div class="lb-rank-n" style="color:' + rankColor + ';">' + (i+1) + '</div>'
       + '<div class="lb-medal-s">' + medal + '</div>'
-      + '<div class="lb-name-s" style="' + (i < 3 ? 'color:' + rankColors[i] + ';' : '') + '">' + row.nickname + (isMe ? ' 👈' : '') + r2badge + '</div>'
+      + '<div class="lb-name-s" style="' + (i < 3 ? 'color:' + rankColors[i] + ';' : '') + '">' + row.nickname + (isMe ? ' 👈' : '') + badge + '</div>'
       + '<div class="lb-score-s" style="' + (i < 3 ? 'color:' + rankColors[i] + ';text-shadow:0 0 10px ' + rankColors[i] + ';' : '') + '">' + total + '</div>'
       + '<div class="lb-bar-bg"><div class="lb-bar-fg" style="width:' + pct + '%;' + (i < 3 ? 'background:' + rankColors[i] + ';' : '') + '"></div></div>'
       + '</div>';
@@ -738,90 +843,98 @@ const CHAR_NAMES = [
   'ADAM','EVA','ROMAN','SARKA','PAVEL'
 ];
 
-const CHAR_TYPES = ['Warrior','Wizard','Ninja','Archer','Sorceress','Knight','Healer','Berserker','Scholar','Bard'];
+const CHAR_TYPES = ['Warrior','Wizard','Bard'];
 
-// Stats: analytika, komunikace, tvurce, vedeni (0-100 each)
-// We pre-generate 20 unique characters
+// Stats: peclivost, napady, spoluprace — součet = 100, přesně jako gamesheet v5
 function rnd(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
 function shuffle(a){const r=[...a];for(let i=r.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]];}return r;}
 
-function genStats(theme){
-  // Each character has 1-2 strong stats and 1 weak stat, colored by theme
-  const themeBonus = {
-    blue:   [0,1,0,0], // strong in komunikace
-    yellow: [0,0,1,0], // strong in tvurce
-    red:    [0,0,0,1], // strong in vedeni
-    green:  [1,0,0,0], // strong in analytika
-  };
-  const stats = [rnd(25,55),rnd(25,55),rnd(25,55),rnd(25,55)];
-  // apply theme bonus
-  const bonus = themeBonus[theme];
-  stats.forEach((v,i)=>{ if(bonus[i]) stats[i]=Math.min(95,stats[i]+rnd(30,45)); });
-  // one random extra strength
-  const extra=Math.floor(Math.random()*4);
-  stats[extra]=Math.min(95,stats[extra]+rnd(15,30));
-  // one weakness
-  const weak=Math.floor(Math.random()*4);
-  stats[weak]=Math.max(5,stats[weak]-rnd(20,35));
-  return stats;
+function genStats(){
+  const dominant = rnd(0, 2);
+  const domVal = rnd(55, 80);
+  const remaining = 100 - domVal;
+  const split = rnd(3, remaining - 3);
+  const vals = [0, 0, 0];
+  vals[dominant] = domVal;
+  const others = [0,1,2].filter(i => i !== dominant);
+  vals[others[0]] = split;
+  vals[others[1]] = remaining - split;
+  return vals;
 }
 
-// Character SVG functions (all 10 from original)
-const CHAR_SVGS = [
-  // 0 Warrior
-  (bg,ac)=>`<svg viewBox="0 0 300 260" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="260" fill="${bg}"/><ellipse cx="150" cy="245" rx="60" ry="10" fill="rgba(0,0,0,0.18)"/><rect x="118" y="178" width="22" height="50" rx="10" fill="${ac}"/><rect x="160" y="178" width="22" height="50" rx="10" fill="${ac}"/><ellipse cx="129" cy="228" rx="16" ry="9" fill="#3e2723"/><ellipse cx="171" cy="228" rx="16" ry="9" fill="#3e2723"/><rect x="108" y="110" width="84" height="75" rx="18" fill="${ac}"/><rect x="120" y="118" width="60" height="50" rx="12" fill="rgba(255,255,255,0.18)"/><rect x="80" y="112" width="28" height="55" rx="14" fill="${ac}"/><rect x="192" y="108" width="28" height="55" rx="14" fill="${ac}"/><rect x="222" y="60" width="10" height="90" rx="4" fill="#cfd8dc"/><rect x="210" y="100" width="34" height="8" rx="4" fill="#ffb300"/><ellipse cx="150" cy="72" rx="36" ry="38" fill="#ffcc80"/><path d="M114 68 Q114 30 150 28 Q186 30 186 68 Z" fill="${ac}"/><circle cx="142" cy="68" r="4" fill="white"/><circle cx="158" cy="68" r="4" fill="white"/><circle cx="143" cy="69" r="2.5" fill="#1a237e"/><circle cx="159" cy="69" r="2.5" fill="#1a237e"/><path d="M138 82 Q150 90 162 82" stroke="#bf8040" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>`,
-  // 1 Wizard
-  (bg,ac)=>`<svg viewBox="0 0 300 260" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="260" fill="${bg}"/><ellipse cx="150" cy="248" rx="55" ry="9" fill="rgba(0,0,0,0.18)"/><path d="M100 130 Q90 200 85 248 L215 248 Q210 200 200 130 Z" fill="${ac}"/><text x="150" y="205" text-anchor="middle" font-size="28" fill="rgba(255,255,255,0.3)" font-family="serif">✦</text><path d="M100 135 Q68 155 60 185" stroke="${ac}" stroke-width="24" stroke-linecap="round" fill="none"/><path d="M200 135 Q228 148 238 172" stroke="${ac}" stroke-width="24" stroke-linecap="round" fill="none"/><circle cx="254" cy="80" r="16" fill="#ce93d8" opacity="0.9"/><ellipse cx="150" cy="74" rx="34" ry="36" fill="#ffe082"/><path d="M110 72 Q112 48 150 12 Q188 48 190 72 Z" fill="#1a237e"/><rect x="102" y="70" width="96" height="12" rx="6" fill="#283593"/><circle cx="138" cy="68" r="5" fill="white"/><circle cx="162" cy="68" r="5" fill="white"/><circle cx="139" cy="69" r="3" fill="#4a148c"/><circle cx="163" cy="69" r="3" fill="#4a148c"/></svg>`,
-  // 2 Ninja
+// ── PALETY PRO KAŽDÝ THEME ──
+const THEME_PALETTES = {
+  blue:   ['#1565c0','#fff176'],
+  yellow: ['#e65100','#fff9c4'],
+  red:    ['#b71c1c','#ffcdd2'],
+  green:  ['#1b5e20','#f0f4c3'],
+};
+
+// Přesně 10 postav z gamesheet v5 PDF
+// theme určuje osobnostní barvu: blue=Extroverní/Emocionální, yellow=Extroverní/Intuitivní, red=Extroverní/Myslitelský, green=Introverní/Pocitový
+// SVG indexy: 0=Warrior/Archer, 1=Wizard/Healer/Scholar, 2=Bard/Berserker, 3=Ninja, 4=Sorceress/Knight
+const CHAR_SVG_MAP = {
+  archer:    3,  // Simona
+  bard:      2,  // Zuzana
+  healer:    1,  // Petra — Wizard variant
+  scholar:   1,  // Viktor — Wizard variant
+  ninja:     3,  // Tomas
+  wizard:    1,  // Lucie
+  knight:    4,  // Renata
+  berserkerM:2,  // Marketa
+  berserkerR:2,  // Radek
+  sorceress: 4,  // Filip
+};
+
+// Přidáme Knight a Sorceress jako extra SVG
+const CHAR_SVGS_EXT = [
+  // 0 Warrior/Archer
+  (bg,ac)=>`<svg viewBox="0 0 300 260" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="260" fill="${bg}"/><ellipse cx="150" cy="247" rx="55" ry="9" fill="rgba(0,0,0,0.18)"/><rect x="118" y="178" width="22" height="54" rx="10" fill="#5d4037"/><rect x="160" y="178" width="22" height="54" rx="10" fill="#5d4037"/><rect x="108" y="110" width="84" height="75" rx="18" fill="${ac}"/><rect x="76" y="108" width="30" height="54" rx="14" fill="${ac}"/><path d="M68 85 Q40 130 68 175" stroke="#6d4c41" stroke-width="6" fill="none" stroke-linecap="round"/><line x1="68" y1="85" x2="68" y2="175" stroke="#d7ccc8" stroke-width="2"/><line x1="68" y1="130" x2="240" y2="155" stroke="#a1887f" stroke-width="3"/><polygon points="62,127 72,124 70,134" fill="${ac}"/><ellipse cx="150" cy="74" rx="34" ry="36" fill="#ffcc80"/><path d="M116 68 Q118 38 150 34 Q182 38 184 68" fill="#5d4037"/><circle cx="138" cy="70" r="5" fill="white"/><circle cx="162" cy="70" r="5" fill="white"/><circle cx="139" cy="71" r="3" fill="#2e7d32"/><circle cx="163" cy="71" r="3" fill="#2e7d32"/></svg>`,
+  // 1 Wizard/Healer/Scholar
+  (bg,ac)=>`<svg viewBox="0 0 300 260" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="260" fill="${bg}"/><ellipse cx="150" cy="248" rx="55" ry="9" fill="rgba(0,0,0,0.18)"/><path d="M100 130 Q90 200 85 248 L215 248 Q210 200 200 130 Z" fill="${ac}"/><path d="M130 140 Q125 200 122 248 L140 248 Q138 200 140 140 Z" fill="rgba(255,255,255,0.1)"/><text x="150" y="205" text-anchor="middle" font-size="28" fill="rgba(255,255,255,0.3)" font-family="serif">&#x2726;</text><path d="M100 135 Q68 155 60 185" stroke="${ac}" stroke-width="24" stroke-linecap="round" fill="none"/><path d="M200 135 Q228 148 238 172" stroke="${ac}" stroke-width="24" stroke-linecap="round" fill="none"/><line x1="238" y1="172" x2="252" y2="90" stroke="#8d6e63" stroke-width="7" stroke-linecap="round"/><circle cx="254" cy="80" r="16" fill="#ce93d8" opacity="0.9"/><circle cx="248" cy="74" r="4" fill="white" opacity="0.7"/><rect x="136" y="96" width="28" height="20" rx="8" fill="#ffe082"/><ellipse cx="150" cy="74" rx="34" ry="36" fill="#ffe082"/><circle cx="138" cy="68" r="5" fill="white"/><circle cx="162" cy="68" r="5" fill="white"/><circle cx="139" cy="69" r="3" fill="#4a148c"/><circle cx="163" cy="69" r="3" fill="#4a148c"/><path d="M110 72 Q112 48 150 12 Q188 48 190 72 Z" fill="#1a237e"/><rect x="102" y="70" width="96" height="12" rx="6" fill="#283593"/><text x="150" y="55" text-anchor="middle" font-size="16" fill="#ffd740">&#x2605;</text></svg>`,
+  // 2 Bard/Berserker
+  (bg,ac)=>`<svg viewBox="0 0 300 260" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="260" fill="${bg}"/><ellipse cx="150" cy="247" rx="62" ry="10" fill="rgba(0,0,0,0.22)"/><rect x="108" y="175" width="28" height="55" rx="10" fill="#4a148c"/><rect x="164" y="175" width="28" height="55" rx="10" fill="#4a148c"/><rect x="100" y="105" width="100" height="78" rx="20" fill="${ac}"/><path d="M95 108 Q72 100 64 118 Q72 130 95 126 Z" fill="#6d4c41"/><path d="M205 108 Q228 100 236 118 Q228 130 205 126 Z" fill="#6d4c41"/><rect x="62" y="108" width="38" height="62" rx="18" fill="${ac}"/><rect x="200" y="108" width="38" height="62" rx="18" fill="${ac}"/><rect x="240" y="60" width="10" height="100" rx="4" fill="#8d6e63"/><path d="M240 60 Q260 50 270 75 Q260 90 240 92 Z" fill="#90a4ae"/><ellipse cx="150" cy="68" rx="40" ry="38" fill="#ffcc80"/><circle cx="136" cy="65" r="7" fill="white"/><circle cx="164" cy="65" r="7" fill="white"/><circle cx="137" cy="66" r="5" fill="#b71c1c"/><circle cx="165" cy="66" r="5" fill="#b71c1c"/><path d="M130 46 Q140 20 150 12 Q160 20 170 46" fill="${ac}"/></svg>`,
+  // 3 Ninja
   (bg,ac)=>`<svg viewBox="0 0 300 260" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="260" fill="${bg}"/><ellipse cx="150" cy="247" rx="52" ry="9" fill="rgba(0,0,0,0.2)"/><rect x="116" y="180" width="22" height="52" rx="10" fill="#212121"/><rect x="162" y="180" width="22" height="52" rx="10" fill="#212121"/><rect x="106" y="110" width="88" height="76" rx="18" fill="#212121"/><rect x="106" y="162" width="88" height="12" rx="6" fill="${ac}"/><rect x="76" y="112" width="30" height="56" rx="14" fill="#212121"/><rect x="194" y="108" width="30" height="56" rx="14" fill="#212121"/><ellipse cx="150" cy="72" rx="35" ry="36" fill="#ffcc80"/><path d="M115 75 Q115 100 150 102 Q185 100 185 75 Z" fill="#212121"/><path d="M110 80 Q108 95 115 105 Q130 112 150 112 Q170 112 185 105 Q192 95 190 80" stroke="${ac}" stroke-width="8" fill="none" stroke-linecap="round"/><ellipse cx="138" cy="67" rx="5" ry="4" fill="white"/><ellipse cx="162" cy="67" rx="5" ry="4" fill="white"/><ellipse cx="138" cy="68" rx="3" ry="3" fill="#b71c1c"/><ellipse cx="162" cy="68" rx="3" ry="3" fill="#b71c1c"/><rect x="115" y="52" width="70" height="12" rx="6" fill="${ac}"/></svg>`,
-  // 3 Archer
-  (bg,ac)=>`<svg viewBox="0 0 300 260" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="260" fill="${bg}"/><ellipse cx="150" cy="247" rx="55" ry="9" fill="rgba(0,0,0,0.18)"/><rect x="118" y="178" width="22" height="54" rx="10" fill="#5d4037"/><rect x="160" y="178" width="22" height="54" rx="10" fill="#5d4037"/><rect x="108" y="110" width="84" height="75" rx="18" fill="${ac}"/><rect x="76" y="108" width="30" height="54" rx="14" fill="${ac}"/><path d="M68 85 Q40 130 68 175" stroke="#6d4c41" stroke-width="6" fill="none" stroke-linecap="round"/><line x1="68" y1="130" x2="240" y2="155" stroke="#a1887f" stroke-width="3"/><polygon points="62,127 72,124 70,134" fill="${ac}"/><ellipse cx="150" cy="74" rx="34" ry="36" fill="#ffcc80"/><path d="M116 68 Q118 38 150 34 Q182 38 184 68" fill="#5d4037"/><circle cx="138" cy="70" r="5" fill="white"/><circle cx="162" cy="70" r="5" fill="white"/><circle cx="139" cy="71" r="3" fill="#2e7d32"/><circle cx="163" cy="71" r="3" fill="#2e7d32"/></svg>`,
-  // 4 Sorceress
-  (bg,ac)=>`<svg viewBox="0 0 300 260" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="260" fill="${bg}"/><ellipse cx="150" cy="247" rx="52" ry="9" fill="rgba(0,0,0,0.18)"/><path d="M104 125 Q88 190 82 248 L218 248 Q212 190 196 125 Z" fill="${ac}"/><circle cx="150" cy="170" r="8" fill="#fff176" opacity="0.8"/><path d="M104 128 Q72 155 58 190" stroke="${ac}" stroke-width="26" stroke-linecap="round" fill="none"/><path d="M196 128 Q228 150 244 182" stroke="${ac}" stroke-width="26" stroke-linecap="round" fill="none"/><ellipse cx="150" cy="74" rx="36" ry="37" fill="#ffe0b2"/><path d="M114 68 Q114 38 150 34 Q186 38 186 68" fill="#ad1457"/><circle cx="136" cy="70" r="8" fill="white"/><circle cx="164" cy="70" r="8" fill="white"/><circle cx="137" cy="71" r="5" fill="#6a1b9a"/><circle cx="165" cy="71" r="5" fill="#6a1b9a"/><path d="M118 58 L126 46 L134 56 L142 40 L150 54 L158 40 L166 56 L174 46 L182 58" stroke="#ffd740" stroke-width="3" fill="none" stroke-linejoin="round"/></svg>`,
-  // 5 Knight
+  // 4 Knight/Sorceress
   (bg,ac)=>`<svg viewBox="0 0 300 260" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="260" fill="${bg}"/><ellipse cx="150" cy="247" rx="60" ry="10" fill="rgba(0,0,0,0.2)"/><rect x="114" y="178" width="26" height="52" rx="10" fill="#78909c"/><rect x="160" y="178" width="26" height="52" rx="10" fill="#78909c"/><rect x="104" y="108" width="92" height="78" rx="20" fill="#90a4ae"/><rect x="146" y="118" width="8" height="50" rx="4" fill="${ac}"/><rect x="126" y="135" width="48" height="8" rx="4" fill="${ac}"/><rect x="74" y="118" width="28" height="52" rx="14" fill="#90a4ae"/><rect x="198" y="118" width="28" height="52" rx="14" fill="#90a4ae"/><path d="M52 128 Q44 155 52 178 Q68 195 84 178 Q92 155 84 128 Z" fill="${ac}"/><rect x="222" y="52" width="12" height="110" rx="4" fill="#cfd8dc"/><rect x="210" y="102" width="36" height="10" rx="5" fill="#ffd740"/><path d="M112 80 Q112 36 150 30 Q188 36 188 80 Z" fill="#78909c"/><rect x="112" y="76" width="76" height="16" rx="8" fill="#90a4ae"/><rect x="118" y="78" width="64" height="11" rx="5" fill="#37474f"/><circle cx="138" cy="83" r="5" fill="#ffd740" opacity="0.8"/><circle cx="162" cy="83" r="5" fill="#ffd740" opacity="0.8"/></svg>`,
-  // 6 Healer
-  (bg,ac)=>`<svg viewBox="0 0 300 260" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="260" fill="${bg}"/><ellipse cx="150" cy="247" rx="52" ry="9" fill="rgba(0,0,0,0.18)"/><path d="M106 120 Q94 185 90 248 L210 248 Q206 185 194 120 Z" fill="white" opacity="0.9"/><path d="M106 120 Q94 185 90 248 L210 248 Q206 185 194 120 Z" fill="${ac}" opacity="0.3"/><rect x="146" y="150" width="8" height="40" rx="4" fill="${ac}"/><rect x="132" y="163" width="36" height="8" rx="4" fill="${ac}"/><path d="M106 122 Q76 145 64 178" stroke="white" stroke-width="26" stroke-linecap="round" fill="none" opacity="0.9"/><path d="M194 122 Q222 142 236 172" stroke="white" stroke-width="26" stroke-linecap="round" fill="none" opacity="0.9"/><ellipse cx="150" cy="76" rx="34" ry="36" fill="#ffe0b2"/><circle cx="137" cy="72" r="6" fill="white"/><circle cx="163" cy="72" r="6" fill="white"/><circle cx="138" cy="73" r="4" fill="#1565c0"/><circle cx="164" cy="73" r="4" fill="#1565c0"/><path d="M116 72 Q116 40 150 36 Q184 40 184 72" fill="#ffd54f"/></svg>`,
-  // 7 Berserker
-  (bg,ac)=>`<svg viewBox="0 0 300 260" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="260" fill="${bg}"/><ellipse cx="150" cy="247" rx="62" ry="10" fill="rgba(0,0,0,0.22)"/><rect x="108" y="175" width="28" height="55" rx="10" fill="#4a148c"/><rect x="164" y="175" width="28" height="55" rx="10" fill="#4a148c"/><rect x="100" y="105" width="100" height="78" rx="20" fill="${ac}"/><rect x="62" y="108" width="38" height="62" rx="18" fill="${ac}"/><rect x="200" y="108" width="38" height="62" rx="18" fill="${ac}"/><rect x="240" y="60" width="10" height="100" rx="4" fill="#8d6e63"/><ellipse cx="150" cy="68" rx="40" ry="38" fill="#ffcc80"/><circle cx="136" cy="65" r="7" fill="white"/><circle cx="164" cy="65" r="7" fill="white"/><circle cx="137" cy="66" r="5" fill="#b71c1c"/><circle cx="165" cy="66" r="5" fill="#b71c1c"/><path d="M130 46 Q140 20 150 12 Q160 20 170 46" fill="${ac}"/></svg>`,
-  // 8 Scholar
-  (bg,ac)=>`<svg viewBox="0 0 300 260" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="260" fill="${bg}"/><ellipse cx="150" cy="247" rx="52" ry="9" fill="rgba(0,0,0,0.18)"/><rect x="120" y="180" width="22" height="50" rx="10" fill="#546e7a"/><rect x="158" y="180" width="22" height="50" rx="10" fill="#546e7a"/><rect x="106" y="110" width="88" height="76" rx="18" fill="white" opacity="0.9"/><rect x="116" y="145" width="24" height="28" rx="6" fill="#b0bec5"/><rect x="76" y="112" width="30" height="55" rx="14" fill="white" opacity="0.9"/><rect x="194" y="112" width="30" height="55" rx="14" fill="white" opacity="0.9"/><rect x="46" y="148" width="32" height="42" rx="4" fill="${ac}"/><ellipse cx="150" cy="72" rx="34" ry="36" fill="#ffe0b2"/><circle cx="136" cy="68" r="11" fill="none" stroke="#37474f" stroke-width="3"/><circle cx="164" cy="68" r="11" fill="none" stroke="#37474f" stroke-width="3"/><circle cx="136" cy="69" r="5" fill="white"/><circle cx="164" cy="69" r="5" fill="white"/><circle cx="137" cy="70" r="3" fill="#1a237e"/><circle cx="165" cy="70" r="3" fill="#1a237e"/><path d="M116 62 Q118 34 150 30 Q182 34 184 62" fill="#795548"/></svg>`,
-  // 9 Bard
-  (bg,ac)=>`<svg viewBox="0 0 300 260" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="260" fill="${bg}"/><text x="56" y="80" font-size="22" fill="rgba(255,255,255,0.4)">♪</text><text x="230" y="95" font-size="18" fill="rgba(255,255,255,0.35)">♫</text><ellipse cx="150" cy="247" rx="52" ry="9" fill="rgba(0,0,0,0.18)"/><rect x="118" y="180" width="22" height="50" rx="10" fill="${ac}"/><rect x="160" y="180" width="22" height="50" rx="10" fill="${ac}"/><rect x="106" y="108" width="88" height="78" rx="18" fill="${ac}"/><rect x="74" y="110" width="32" height="55" rx="15" fill="${ac}"/><rect x="194" y="108" width="32" height="55" rx="15" fill="${ac}"/><ellipse cx="150" cy="72" rx="35" ry="37" fill="#ffe0b2"/><path d="M128 66 Q136 60 144 66" stroke="#5d4037" stroke-width="3.5" fill="none" stroke-linecap="round"/><path d="M156 66 Q164 60 172 66" stroke="#5d4037" stroke-width="3.5" fill="none" stroke-linecap="round"/><path d="M115 65 Q118 38 150 33 Q182 38 185 65" fill="#e65100"/><circle cx="118" cy="10" r="8" fill="${ac}"/><circle cx="160" cy="4" r="7" fill="#ffd740"/><circle cx="182" cy="10" r="7" fill="#e53935"/></svg>`,
 ];
 
-// Generate 20 characters
-const CHARACTERS = (() => {
-  const themes = shuffle(['blue','blue','yellow','yellow','red','red','green','green','blue','yellow','red','green','blue','yellow','red','green','blue','red','yellow','green']);
-  const names  = shuffle(CHAR_NAMES).slice(0,20);
-  const types  = [...Array(10)].map((_,i)=>i).concat([...Array(10)].map((_,i)=>i));
-  const shuffledTypes = shuffle(types);
-  return names.map((name,i)=>{
-    const theme = themes[i];
-    const [bg,ac] = PALETTES[theme];
-    const typeIdx = shuffledTypes[i];
-    return {
-      id: i, name, theme,
-      typeName: CHAR_TYPES[typeIdx],
-      bg, ac,
-      svg: CHAR_SVGS[typeIdx](bg,ac),
-      stats: genStats(theme), // [analytika, komunikace, tvurce, vedeni]
-    };
-  });
-})();
+// Přesná data z PDF
+const CHARACTERS = [
+  { id:0, name:'SIMONA',  theme:'yellow', typeName:'Archer',    svgIdx:0, stats:[31,10,59] },
+  { id:1, name:'ZUZANA',  theme:'blue',   typeName:'Bard',      svgIdx:2, stats:[19,64,17] },
+  { id:2, name:'PETRA',   theme:'green',  typeName:'Healer',    svgIdx:1, stats:[56,39,5]  },
+  { id:3, name:'VIKTOR',  theme:'red',    typeName:'Scholar',   svgIdx:1, stats:[16,75,9]  },
+  { id:4, name:'TOMAS',   theme:'green',  typeName:'Ninja',     svgIdx:3, stats:[28,15,57] },
+  { id:5, name:'LUCIE',   theme:'green',  typeName:'Wizard',    svgIdx:1, stats:[19,64,17] },
+  { id:6, name:'RENATA',  theme:'blue',   typeName:'Knight',    svgIdx:4, stats:[67,24,9]  },
+  { id:7, name:'MARKETA', theme:'red',    typeName:'Berserker', svgIdx:2, stats:[19,4,77]  },
+  { id:8, name:'RADEK',   theme:'red',    typeName:'Berserker', svgIdx:2, stats:[7,22,71]  },
+  { id:9, name:'FILIP',   theme:'yellow', typeName:'Sorceress', svgIdx:4, stats:[74,5,21]  },
+].map(c => {
+  const [bg,ac] = THEME_PALETTES[c.theme];
+  return { ...c, bg, ac, svg: CHAR_SVGS_EXT[c.svgIdx](bg,ac) };
+});
 
 // ═══════════════════════════════════════════════
 // ROUND & SELECT
 // ═══════════════════════════════════════════════
 function startRound(r){
   if (!currentNickname) { showScreen('screen-nick'); return; }
+  // Zamčení — nelze hrát kolo dokud není dokončeno předchozí
+  if (r > 1 && !completedRounds[r-1]) {
+    showToast('⚠ Nejdřív dokonči Kolo ' + (r-1) + '!');
+    return;
+  }
   currentRound = r;
   team.me=null; team.t1=null; team.t2=null;
   activeSlot='me';
   buildCharGrid();
   updateTeamPanel();
+  const badgeClass = r===1?'r1':r===2?'r2':'r3';
   document.getElementById('active-round-badge').innerHTML =
-    r===1 ? '<span class="round-badge r1">KOLO 1</span>' : '<span class="round-badge r2">KOLO 2</span>';
+    '<span class="round-badge ' + badgeClass + '">KOLO ' + r + '</span>';
   showScreen('screen-select');
 }
 
@@ -974,87 +1087,131 @@ function checkReady(){
 function evaluateTeam(){
   const chars = [team.me, team.t1, team.t2];
 
-  // ── Stat balance (used in both rounds) ──
-  // For each of 4 stats, sum team values
-  const statTotals = [0,1,2,3].map(i => chars.reduce((s,c)=>s+c.stats[i],0));
-  const avgStat = statTotals.reduce((a,b)=>a+b,0)/4;
-  // variance: how spread apart are the 4 stat totals?
-  const variance = statTotals.reduce((s,v)=>s+Math.pow(v-avgStat,2),0)/4;
-  const stdDev = Math.sqrt(variance);
-  // lower stdDev = better balance. Max possible ~120, perfect = 0
-  const statBalanceScore = Math.max(0, 100 - (stdDev/1.2));
+  // Stats jsou relativní — součet každého hráče = 100
+  // Týmový součet každé dovednosti: ideál = 100 (33% každý)
+  const statTotals = [0,1,2].map(i => chars.reduce((s,c) => s + c.stats[i], 0));
+  const avgStat = statTotals.reduce((a,b) => a+b, 0) / 3; // ~100
 
-  // also check coverage: does each stat have at least one character with >50?
-  const coverage = [0,1,2,3].map(si=>chars.some(c=>c.stats[si]>50)?1:0);
-  const coverageBonus = coverage.reduce((a,b)=>a+b,0) * 5; // 0-20 bonus
+  // Balance: čím blíže si jsou stat totals, tím lépe
+  const variance = statTotals.reduce((s,v) => s + Math.pow(v-avgStat,2), 0) / 3;
+  const stdDev = Math.sqrt(variance);
+  const statBalanceScore = Math.max(0, 100 - (stdDev / 0.8));
+
+  // Coverage: má každá dovednost alespoň jednoho s >40%?
+  const coverage = [0,1,2].map(si => chars.some(c => c.stats[si] > 40) ? 1 : 0);
+  const coverageBonus = coverage.reduce((a,b) => a+b, 0) * 6; // max +18
 
   let round1Score = Math.round(Math.min(100, statBalanceScore + coverageBonus));
 
-  // ── Personality diversity (round 2 only) ──
-  const themes = chars.map(c=>c.theme);
+  // Kola 2 a 3 = dovednosti (max 100) + osobnosti (max 100) = max 200
+  const themes = chars.map(c => c.theme);
   const uniqueThemes = new Set(themes).size;
-  // 3 unique = full diversity, 2 = partial, 1 = mono
-  const diversityScore = uniqueThemes===3 ? 100 : uniqueThemes===2 ? 60 : 20;
+  // Osobnostní skóre: 3 různé = 100, 2 různé = 50, 1 typ = 0
+  const personalityScore = uniqueThemes === 3 ? 100 : uniqueThemes === 2 ? 50 : 0;
+  const diversityScore = personalityScore; // pro zobrazení
 
-  // Combined round 2 score
-  let round2Score = Math.round(statBalanceScore*0.55 + diversityScore*0.45 + coverageBonus*0.5);
-  round2Score = Math.min(100, round2Score);
+  const finalScore = currentRound === 1
+    ? round1Score
+    : round1Score + personalityScore; // max 200
 
-  const displayScore = currentRound===1 ? round1Score : round2Score;
+  const displayScore = finalScore;
+
+  // ── Označ kolo jako dokončené ──
+  completedRounds[currentRound] = true;
+  roundScores[currentRound] = finalScore;
+  // Ulož do localStorage
+  localStorage.setItem('tf_rounds', JSON.stringify({ completed: completedRounds, scores: roundScores }));
+
+  const scoringBreakdown = {
+    balanceScore: Math.round(statBalanceScore),
+    coveragePoints: coverageBonus,
+    weakPenalty: 0, dominancePenalty: 0, dupPenalty: 0,
+    spread: Math.round(Math.max(...statTotals) - Math.min(...statTotals)),
+    coveredCount: coverage.reduce((a,b) => a+b, 0),
+    avgPerStat: statTotals.map(v => Math.round(v/3)),
+  };
 
   // ── Save to Supabase ──
   const teamData = {
-    me:  { name: team.me.name,  theme: team.me.theme,  type: team.me.typeName,  stats: team.me.stats  },
-    t1:  { name: team.t1.name,  theme: team.t1.theme,  type: team.t1.typeName,  stats: team.t1.stats  },
-    t2:  { name: team.t2.name,  theme: team.t2.theme,  type: team.t2.typeName,  stats: team.t2.stats  },
+    me: { name: team.me.name, theme: team.me.theme, type: team.me.typeName, stats: team.me.stats },
+    t1: { name: team.t1.name, theme: team.t1.theme, type: team.t1.typeName, stats: team.t1.stats },
+    t2: { name: team.t2.name, theme: team.t2.theme, type: team.t2.typeName, stats: team.t2.stats },
   };
   saveScoreToSupabase(
-    currentRound===1 ? round1Score : undefined,
-    currentRound===2 ? round2Score : undefined,
+    currentRound === 1 ? finalScore : undefined,
+    currentRound === 2 ? finalScore : undefined,
+    currentRound === 3 ? finalScore : undefined,
     teamData
   ).catch(function(){});
 
   // ── Build result ──
   showResult({
-    chars, statTotals, statBalanceScore: Math.round(statBalanceScore),
-    coverageBonus, coverage, diversityScore, uniqueThemes, themes,
-    round1Score, round2Score, displayScore, currentRound
+    chars, statTotals,
+    statBalanceScore: statBalanceScore,
+    coverageBonus: coverageBonus,
+    coverage, diversityScore, uniqueThemes, themes,
+    round1Score, round2Score: finalScore, displayScore, currentRound,
+    scoringBreakdown
   });
 }
 
 // ═══════════════════════════════════════════════
 // RESULT SCREEN
 // ═══════════════════════════════════════════════
-const STAT_NAMES = ['Analytika','Komunikace','Tvůrce','Vedení'];
-const STAT_COLORS = ['#4dd0e1','#f48fb1','#a5d610','#ffd740'];
+const STAT_NAMES = ['Pečlivost','Nápady','Spolupráce'];
+const STAT_COLORS = ['#4dd0e1','#ffd740','#a5d610'];
 
-function scoreClass(s){
-  if(s>=80) return 's-excellent';
-  if(s>=60) return 's-good';
-  if(s>=40) return 's-ok';
+function scoreClass(s, r){
+  const max = r === 1 ? 100 : 200;
+  const pct = s / max;
+  if(pct>=0.8) return 's-excellent';
+  if(pct>=0.6) return 's-good';
+  if(pct>=0.4) return 's-ok';
   return 's-poor';
 }
 function scoreVerdict(s,r){
+  const max = r === 1 ? 100 : 200;
+  const pct = s / max;
   if(r===1){
-    if(s>=80) return '🏆 Výborně vyvážený tým!';
-    if(s>=60) return '✅ Dobrý tým s pár mezerami';
-    if(s>=40) return '⚠️ Průměrná balance — dá se zlepšit';
+    if(pct>=0.8) return '🏆 Výborně vyvážený tým!';
+    if(pct>=0.6) return '✅ Dobrý tým s pár mezerami';
+    if(pct>=0.4) return '⚠️ Průměrná balance — dá se zlepšit';
     return '❌ Nevyvážený tým — zkuste jiné složení';
-  } else {
-    if(s>=80) return '🌟 Perfektní kombinace — různé dovednosti i osobnosti!';
-    if(s>=60) return '✅ Solidní tým — osobnostní mix mohl být pestřejší';
-    if(s>=40) return '⚠️ Slabá diverzita — příliš podobné typy';
+  } else if(r===2) {
+    if(pct>=0.8) return '🌟 Perfektní kombinace — různé dovednosti i osobnosti!';
+    if(pct>=0.6) return '✅ Solidní tým — osobnostní mix mohl být pestřejší';
+    if(pct>=0.4) return '⚠️ Slabá diverzita — příliš podobné typy';
     return '❌ Mono-tým — chybí různé perspektivy';
+  } else {
+    if(pct>=0.8) return '🏅 Mistr sestavování týmu — finální výzva zvládnuta!';
+    if(pct>=0.6) return '✅ Dobrý výsledek v finále — ještě trochu práce!';
+    if(pct>=0.4) return '⚠️ Stále je co zlepšovat — zkus to znovu';
+    return '❌ Finální výzva nevyšla — sestav tým jinak!';
   }
+}
+
+function scoreBreakdownRow(label, barVal, rawVal, color, note) {
+  const barW = Math.max(0, Math.min(100, Math.abs(barVal)));
+  const isNeg = rawVal < 0;
+  return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.05);">'
+    + '<div style="width:130px;font-size:0.65rem;color:rgba(255,255,255,0.55);flex-shrink:0;">' + label + '</div>'
+    + '<div style="flex:1;height:8px;background:rgba(255,255,255,0.07);border-radius:4px;overflow:hidden;">'
+    + '<div style="height:100%;width:' + barW + '%;background:' + (isNeg ? 'var(--pink)' : color) + ';border-radius:4px;transition:width 0.8s;"></div>'
+    + '</div>'
+    + '<div style="width:64px;text-align:right;font-family:Orbitron,sans-serif;font-size:0.7rem;font-weight:700;color:' + (isNeg ? 'var(--pink)' : color) + ';">' + note + '</div>'
+    + '</div>';
 }
 
 function showResult(data){
   showScreen('screen-result');
   const c = document.getElementById('result-content');
-  const {chars,statTotals,statBalanceScore,coverageBonus,coverage,diversityScore,uniqueThemes,themes,round1Score,round2Score,displayScore,currentRound:rnd} = data;
+  const {chars, statTotals, statBalanceScore, coverageBonus, coverage, diversityScore,
+         uniqueThemes, themes, round1Score, round2Score, displayScore,
+         currentRound:rnd, scoringBreakdown:sb} = data;
 
-  const sc = scoreClass(displayScore);
-  const vd = scoreVerdict(displayScore,rnd);
+  const maxScore = rnd === 1 ? 100 : 200;
+  const sc = scoreClass(displayScore, rnd);
+  const vd = scoreVerdict(displayScore, rnd);
 
   // Team preview cards
   const slotColors = [['var(--cyan)','Ty'],['var(--pink)','Spoluhráč 1'],['var(--yellow)','Spoluhráč 2']];
@@ -1104,45 +1261,59 @@ function showResult(data){
   const tips = genTips(data);
   const tipsHTML = tips.map(t=>`<div class="tip-item">💡 ${t}</div>`).join('');
 
-  // Round 2 extra section
+  // Osobnostní sekce pro kola 2 a 3
   let r2extra = '';
-  if(rnd===2){
+  if(rnd>=2){
     const diversityMsg = uniqueThemes===3
       ? '✅ Perfektní! Máš všechny různé osobnostní typy'
       : uniqueThemes===2
         ? '⚠️ Máš jen 2 typy — zkus přidat třetí barvu'
         : '❌ Všichni stejný typ — tým postrádá různé perspektivy';
+    const kolLabel = rnd===3 ? 'KOLO 3' : 'KOLO 2';
     r2extra = '<div class="result-section fade-in">'
       + '<div class="section-title">// OSOBNOSTNÍ DIVERZITA</div>'
       + '<div class="panel" style="padding:18px;">'
       + '<div class="personality-row" style="margin-bottom:14px;">' + persHTML + '</div>'
       + '<div class="bk-item" style="border-color:var(--yellow);">'
-      + '<div class="bk-title" style="color:var(--yellow);">DIVERZITA TYPŮ</div>'
+      + '<div class="bk-title" style="color:var(--yellow);">DIVERZITA OSOBNOSTÍ</div>'
       + '<div class="bk-bar-wrap"><div class="bk-bar" style="background:var(--yellow);width:' + diversityScore + '%"></div></div>'
-      + '<div class="bk-val" style="color:var(--yellow);">' + uniqueThemes + '/3 různé typy — ' + diversityScore + 'b</div>'
+      + '<div class="bk-val" style="color:var(--yellow);">' + uniqueThemes + '/3 různé typy</div>'
       + '</div>'
+      + '<div style="margin-top:12px;background:rgba(255,255,255,0.04);border-radius:6px;padding:12px 14px;">'
+      + '<div style="display:flex;justify-content:space-between;font-size:0.75rem;color:rgba(255,255,255,0.5);margin-bottom:6px;">'
+      + '<span>Dovednostní balance</span><span style="color:var(--cyan);">' + round1Score + ' / 100</span></div>'
+      + '<div style="display:flex;justify-content:space-between;font-size:0.75rem;color:rgba(255,255,255,0.5);margin-bottom:8px;">'
+      + '<span>Osobnostní diverzita</span><span style="color:var(--yellow);">' + (round2Score - round1Score) + ' / 100</span></div>'
+      + '<div style="border-top:1px solid rgba(255,255,255,0.12);padding-top:8px;display:flex;justify-content:space-between;align-items:center;">'
+      + '<span style="font-family:Orbitron,sans-serif;font-size:0.65rem;letter-spacing:0.2em;color:rgba(255,255,255,0.4);">CELKEM ' + kolLabel + '</span>'
+      + '<span style="font-family:Orbitron,sans-serif;font-size:1.4rem;font-weight:900;color:var(--yellow);text-shadow:0 0 12px var(--yellow);">' + round2Score + ' / 200</span>'
+      + '</div></div>'
       + '<div style="margin-top:10px;font-size:0.75rem;color:rgba(255,255,255,0.45);line-height:1.6;">' + diversityMsg + '</div>'
       + '</div></div>';
   }
 
-  const roundBadgeClass = rnd===1 ? 'r1' : 'r2';
-  const roundBadgeText  = rnd===1 ? 'KOLO 1 — DOVEDNOSTNÍ BALANCE' : 'KOLO 2 — KOMPLEXNÍ HODNOCENÍ';
-  const tab2btn   = rnd===2 ? '<button class="round-tab r2" id="tab-r2" onclick="switchTab(\'r2\')">KOLO 2</button>' : '';
-  const tab2panel = rnd===2 ? '<div id="tab-content-r2" class="result-section hidden">' + r2extra + '</div>' : '';
-  const otherRound     = rnd===1 ? 2 : 1;
-  const otherRoundText = rnd===1 ? '⚡ Jít na Kolo 2' : '🎯 Jít na Kolo 1';
+  const roundBadgeClass = rnd===1 ? 'r1' : rnd===2 ? 'r2' : 'r3';
+  const roundBadgeText  = rnd===1 ? 'KOLO 1 — DOVEDNOSTNÍ BALANCE' : rnd===2 ? 'KOLO 2 — DOVEDNOSTI + OSOBNOSTI' : 'KOLO 3 — FINÁLNÍ VÝZVA';
+  const tab2btn   = rnd>=2 ? '<button class="round-tab ' + roundBadgeClass + '" id="tab-r2" onclick="switchTab(\'r2\')">' + (rnd===3?'KOLO 3':'KOLO 2') + '</button>' : '';
+  const tab2panel = rnd>=2 ? '<div id="tab-content-r2" class="result-section hidden">' + r2extra + '</div>' : '';
+
+  // Tlačítka — jen nabídni DALŠÍ kolo pokud existuje
+  const nextRound = rnd < 3 ? rnd + 1 : null;
+  const nextBtn = nextRound
+    ? '<button class="btn btn-gold" onclick="startRound(' + nextRound + ')">▶ KOLO ' + nextRound + ' →</button>'
+    : '';
 
   c.innerHTML = '<div class="score-hero fade-in">'
     + '<div class="round-badge ' + roundBadgeClass + '" style="margin-bottom:14px;">' + roundBadgeText + '</div>'
     + '<div class="score-big ' + sc + '">' + displayScore + '</div>'
-    + '<div class="score-label">/ 100 BODŮ</div>'
+    + '<div class="score-label">/ ' + maxScore + ' BODŮ</div>'
     + '<div class="score-verdict">' + vd + '</div>'
     + '</div>'
 
     + '<div class="team-preview">' + teamPreviewHTML + '</div>'
 
     + '<div class="round-tabs">'
-    + '<button class="round-tab active r1" id="tab-r1" onclick="switchTab(\'r1\')">KOLO 1</button>'
+    + '<button class="round-tab active r1" id="tab-r1" onclick="switchTab(\'r1\')">DOVEDNOSTI</button>'
     + tab2btn
     + '</div>'
 
@@ -1155,7 +1326,7 @@ function showResult(data){
     + '<div class="bk-item" style="border-color:var(--green);">'
     + '<div class="bk-title" style="color:var(--green);">CELKOVÁ BALANCE</div>'
     + '<div class="bk-bar-wrap"><div class="bk-bar" style="background:var(--green);width:' + statBalanceScore + '%"></div></div>'
-    + '<div class="bk-val" style="color:var(--green);">' + statBalanceScore + ' bodů + ' + coverageBonus + ' bonus za pokrytí = ' + round1Score + ' celkem</div>'
+    + '<div class="bk-val" style="color:var(--green);">' + statBalanceScore + ' bodů + ' + coverageBonus + ' bonus = ' + round1Score + ' celkem</div>'
     + '</div></div></div>'
 
     + tab2panel
@@ -1166,8 +1337,9 @@ function showResult(data){
     + '</div>'
 
     + '<div class="btn-row fade-in" style="display:flex;gap:10px;justify-content:center;width:100%;padding-bottom:20px;flex-wrap:wrap;">'
-    + '<button class="btn btn-primary" onclick="startRound(' + rnd + ')">🔄 ZKUSIT ZNOVU</button>'
-    + '<button class="btn btn-secondary" onclick="startRound(' + otherRound + ')">' + otherRoundText + '</button>'
+    + nextBtn
+    + '<button class="btn btn-secondary" style="font-size:0.7rem;" onclick="showIntro()">← MENU</button>'
+    + '</div>';
     + '<button class="btn btn-gold" onclick="showLB()">🏆 LEADERBOARD</button>'
     + '<button class="btn btn-secondary" style="font-size:0.7rem;" onclick="showScreen(\'screen-intro\')">← MENU</button>'
     + '</div>';
@@ -1192,15 +1364,15 @@ function switchTab(tab){
 function genTips(data){
   const {chars,statTotals,coverage,uniqueThemes,currentRound:rnd} = data;
   const tips = [];
-  const statNames=['Analytiku','Komunikaci','Tvůrce','Vedení'];
-  coverage.forEach((ok,i)=>{ if(!ok) tips.push(`Nikdo v týmu nemá silnou <strong>${statNames[i]}</strong> (>50%) — přidej odborníka.`); });
+  const statNames=['Pečlivost','Nápady','Spolupráci'];
+  coverage.forEach((ok,i)=>{ if(!ok) tips.push('Nikdo v týmu nemá silnou <strong>' + statNames[i] + '</strong> (>40%) — přidej někoho s touto silnou stránkou.'); });
   const maxStat=Math.max(...statTotals), minStat=Math.min(...statTotals);
   const maxIdx=statTotals.indexOf(maxStat), minIdx=statTotals.indexOf(minStat);
-  if(maxStat-minStat>80) tips.push(`Tým je příliš silný v <strong>${statNames[maxIdx]}</strong>, ale slabý v <strong>${statNames[minIdx]}</strong>.`);
+  if(maxStat-minStat>60) tips.push('Tým je příliš silný v <strong>' + statNames[maxIdx] + '</strong>, ale slabý v <strong>' + statNames[minIdx] + '</strong>.');
   if(rnd===2&&uniqueThemes<3){
     const presentThemes=new Set(chars.map(c=>c.theme));
     const missing=['blue','yellow','red','green'].filter(t=>!presentThemes.has(t));
-    tips.push(`Chybí ti <strong>${missing.map(t=>THEME_EMOJI[t]+' '+THEME_NAME[t]).join(', ')}</strong> osobnostní typ${missing.length>1?'y':''}.`);
+    tips.push('Chybí ti <strong>' + missing.map(t=>THEME_EMOJI[t]+' '+THEME_NAME[t]).join(', ') + '</strong> osobnostní typ' + (missing.length>1?'y':'') + '.');
   }
   if(tips.length===0) tips.push('Skvělé složení! Zkus vyměnit jednu postavu a sleduj, jak se skóre změní.');
   return tips.slice(0,4);
