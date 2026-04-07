@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pitch Duel</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Orbitron:wght@700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;font-family:'Nunito',sans-serif;color:#fff;background:#0a0420}
+  body{
+    background:radial-gradient(circle at 20% 10%,#3a0a5c 0%,transparent 55%),
+               radial-gradient(circle at 80% 90%,#0a2a6a 0%,transparent 55%),
+               #060218;
+    min-height:100vh;display:flex;flex-direction:column;align-items:center;
+    padding:18px;overflow-x:hidden
+  }
+  h1{font-family:'Orbitron',sans-serif;font-size:30px;letter-spacing:2px;
+     background:linear-gradient(90deg,#00f5ff,#ff006e,#ffd700);
+     -webkit-background-clip:text;background-clip:text;color:transparent;
+     text-align:center;margin-bottom:6px}
+  .sub{opacity:.7;font-size:13px;text-align:center;margin-bottom:18px}
+  .card{
+    width:100%;max-width:480px;background:rgba(10,4,30,.85);
+    border:1px solid rgba(255,255,255,.12);border-radius:18px;
+    padding:20px;margin-bottom:14px;backdrop-filter:blur(8px);
+    box-shadow:0 8px 30px rgba(0,0,0,.5)
+  }
+  label{display:block;font-size:12px;opacity:.75;margin-bottom:6px;text-transform:uppercase;letter-spacing:1px}
+  input,textarea,select{
+    width:100%;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.18);
+    background:rgba(255,255,255,.05);color:#fff;font:inherit;font-size:15px;margin-bottom:12px
+  }
+  textarea{min-height:140px;resize:vertical}
+  input:focus,textarea:focus,select:focus{outline:none;border-color:#00f5ff}
+  button{
+    width:100%;padding:14px;border:none;border-radius:12px;font:inherit;
+    font-weight:900;font-size:16px;cursor:pointer;letter-spacing:1px;
+    background:linear-gradient(90deg,#00f5ff,#ff006e);color:#fff;
+    transition:transform .15s,box-shadow .15s;text-transform:uppercase
+  }
+  button:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(255,0,110,.4)}
+  button:disabled{opacity:.5;cursor:not-allowed;transform:none}
+  button.ghost{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2)}
+  .types{display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:8px}
+  .type{
+    padding:14px;border-radius:14px;border:2px solid rgba(255,255,255,.15);
+    background:rgba(255,255,255,.04);cursor:pointer;text-align:left;
+    transition:all .2s;color:#fff
+  }
+  .type:hover{border-color:#00f5ff}
+  .type.sel{border-color:#ffd700;background:rgba(255,215,0,.12)}
+  .type .emo{font-size:26px;margin-right:8px}
+  .type .nm{font-weight:900;font-size:16px}
+  .type .ds{font-size:12px;opacity:.7;margin-top:4px}
+  .timer{
+    font-family:'Orbitron',sans-serif;font-size:60px;text-align:center;
+    color:#ffd700;margin:10px 0;font-weight:900
+  }
+  .timer.warn{color:#ff006e;animation:pulse .6s infinite}
+  @keyframes pulse{50%{opacity:.5}}
+  .topic{
+    padding:16px;background:rgba(0,245,255,.08);border:1px solid rgba(0,245,255,.4);
+    border-radius:12px;margin-bottom:14px;text-align:center;font-size:18px;font-weight:800
+  }
+  .player-tag{
+    display:inline-block;padding:6px 14px;border-radius:20px;
+    background:linear-gradient(90deg,#00f5ff,#ff006e);font-weight:900;
+    margin-bottom:10px;font-size:14px
+  }
+  .score-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08);font-size:14px}
+  .score-row:last-child{border-bottom:none;font-weight:900;font-size:16px;color:#ffd700;padding-top:12px}
+  .winner{
+    font-family:'Orbitron',sans-serif;font-size:32px;text-align:center;
+    background:linear-gradient(90deg,#ffd700,#ff006e);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    margin:14px 0;font-weight:900
+  }
+  .vs{text-align:center;font-family:'Orbitron',sans-serif;font-size:22px;opacity:.6;margin:8px 0}
+  .pass{text-align:center;font-size:48px;margin:20px 0;animation:bounce 1s infinite}
+  @keyframes bounce{50%{transform:translateY(-10px)}}
+  .loading{text-align:center;padding:30px;font-size:16px}
+  .loading::after{content:'';display:inline-block;width:20px;text-align:left;animation:dots 1.2s infinite}
+  @keyframes dots{0%{content:''}33%{content:'.'}66%{content:'..'}100%{content:'...'}}
+  .mic-btn{background:linear-gradient(90deg,#39ff14,#00f5ff);margin-bottom:8px}
+  .mic-btn.rec{background:linear-gradient(90deg,#ff006e,#ffd700);animation:pulse 1s infinite}
+  .err{color:#ff006e;font-size:13px;margin-bottom:10px;text-align:center}
+  .hidden{display:none!important}
+  small{opacity:.6;font-size:11px;display:block;text-align:center;margin-top:8px}
+</style>
+</head>
+<body>
+  <h1>PITCH DUEL</h1>
+  <div class="sub">Souboj prezentátorů — 2 hráči, 1 telefon</div>
+
+  <!-- SETUP -->
+  <div class="card" id="screen-setup">
+    <label>Hráč A</label>
+    <input id="p1" placeholder="Jméno hráče A" maxlength="20">
+    <label>Hráč B</label>
+    <input id="p2" placeholder="Jméno hráče B" maxlength="20">
+    <label>Anthropic API klíč</label>
+    <input id="apikey" type="password" placeholder="sk-ant-...">
+    <small>Klíč se uloží jen ve tvém prohlížeči (localStorage).</small>
+    <div style="height:14px"></div>
+    <button onclick="startGame()">Začít hru</button>
+  </div>
+
+  <!-- TYPE SELECT -->
+  <div class="card hidden" id="screen-type">
+    <label>Vyberte typ pitche</label>
+    <div class="types" id="typeList"></div>
+    <button onclick="pickTopic()" id="typeNext" disabled>Vybrat téma</button>
+  </div>
+
+  <!-- TOPIC -->
+  <div class="card hidden" id="screen-topic">
+    <label>Téma kola</label>
+    <div class="topic" id="topicTxt"></div>
+    <button onclick="newTopic()" class="ghost">🎲 Jiné téma</button>
+    <div style="height:10px"></div>
+    <button onclick="goPitch('A')">Začít — <span id="firstName"></span></button>
+  </div>
+
+  <!-- PITCH -->
+  <div class="card hidden" id="screen-pitch">
+    <div style="text-align:center"><span class="player-tag" id="curName"></span></div>
+    <div class="topic" id="pitchTopic"></div>
+    <div class="timer" id="timer">60</div>
+    <button id="micBtn" class="mic-btn" onclick="toggleMic()">🎤 Nahrávat</button>
+    <textarea id="pitchText" placeholder="Piš nebo mluv svůj pitch..."></textarea>
+    <button onclick="endPitch()">✓ Hotovo</button>
+  </div>
+
+  <!-- PASS -->
+  <div class="card hidden" id="screen-pass">
+    <div class="pass">📱➡️</div>
+    <div style="text-align:center;font-size:20px;font-weight:900;margin-bottom:14px">
+      Předej telefon hráči<br><span id="passName" style="color:#ffd700"></span>
+    </div>
+    <button onclick="goPitch('B')">Připraven — start</button>
+  </div>
+
+  <!-- JUDGING -->
+  <div class="card hidden" id="screen-judge">
+    <div class="loading">Claude hodnotí pitche</div>
+  </div>
+
+  <!-- RESULT -->
+  <div class="card hidden" id="screen-result">
+    <div class="winner" id="winnerTxt"></div>
+    <div id="scoreBoard"></div>
+    <div style="height:14px"></div>
+    <button onclick="location.reload()">Nová hra</button>
+  </div>
+
+  <div id="errBox" class="err"></div>
+
+<script>
+const SUPA_URL='https://ibgbvyclepaqqcatjxgd.supabase.co';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImliZ2J2eWNsZXBhcXFjYXRqeGdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyOTk5NzAsImV4cCI6MjA4OTg3NTk3MH0.KuRu0n4r-_UzCqiADE5NPHY5n4fTht3JRtcf4OxctlQ';
+const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+const TYPES = [
+  {id:'startup', emo:'🚀', name:'Startup Pitch', desc:'Prodej nápad investorům',
+   topics:[
+     'Aplikace, která propojuje sousedy pro sdílení nářadí',
+     'AI asistent pro plánování svateb',
+     'Platforma pro pronájem zahrad ve městě',
+     'Chytré zrcadlo s personalizovaným tréninkem',
+     'Doručování jídla pomocí dronů na vesnicích',
+     'Předplatné na neomezenou kávu v kavárnách',
+     'Aplikace, která učí děti finanční gramotnosti hrou',
+     'Marketplace pro výměnu dovedností místo peněz'
+   ]},
+  {id:'business', emo:'📊', name:'Business Presentation', desc:'Strategie, data, plán',
+   topics:[
+     'Proč firma musí letos vstoupit na německý trh',
+     'Plán snížení provozních nákladů o 20 %',
+     'Strategie přechodu na 4denní pracovní týden',
+     'Q4 výsledky: růst, rizika a další kroky',
+     'Návrh restrukturalizace marketingového oddělení',
+     'Investice do AI nástrojů pro celý tým',
+     'Plán expanze do tří nových měst',
+     'Změna cenové strategie pro prémiový segment'
+   ]},
+  {id:'inspire', emo:'🎤', name:'Inspirational Speech', desc:'TED-style, motivuj a inspiruj',
+   topics:[
+     'Proč je selhání nejlepší učitel',
+     'Síla malých každodenních návyků',
+     'Jak strach může být tvůj nejlepší kompas',
+     'Proč zvědavost mění svět víc než talent',
+     'Odvaha říct ne věcem, které tě brzdí',
+     'Co nás naučí ticho v hlučném světě',
+     'Proč být začátečník je superschopnost',
+     'Když sníš, sni větší než to, co si dovolíš'
+   ]}
+];
+
+let state = {
+  p1:'', p2:'', apikey:'',
+  type:null, topic:'',
+  pitches:{A:'',B:''},
+  scores:null,
+  current:'A',
+  timerId:null
+};
+
+function show(id){
+  ['setup','type','topic','pitch','pass','judge','result'].forEach(s=>{
+    document.getElementById('screen-'+s).classList.toggle('hidden', s!==id);
+  });
+}
+function err(msg){document.getElementById('errBox').textContent=msg||'';}
+
+window.addEventListener('load',()=>{
+  const k = localStorage.getItem('pd_apikey');
+  if(k) document.getElementById('apikey').value = k;
+});
+
+function startGame(){
+  const p1 = document.getElementById('p1').value.trim();
+  const p2 = document.getElementById('p2').value.trim();
+  const ak = document.getElementById('apikey').value.trim();
+  if(!p1||!p2){err('Zadej obě jména');return;}
+  if(!ak){err('Zadej Anthropic API klíč');return;}
+  err('');
+  state.p1=p1; state.p2=p2; state.apikey=ak;
+  localStorage.setItem('pd_apikey', ak);
+  renderTypes();
+  show('type');
+}
+
+function renderTypes(){
+  const list = document.getElementById('typeList');
+  list.innerHTML='';
+  TYPES.forEach(t=>{
+    const b = document.createElement('button');
+    b.className='type';
+    b.innerHTML=`<div><span class="emo">${t.emo}</span><span class="nm">${t.name}</span></div><div class="ds">${t.desc}</div>`;
+    b.onclick=()=>{
+      state.type=t;
+      [...list.children].forEach(c=>c.classList.remove('sel'));
+      b.classList.add('sel');
+      document.getElementById('typeNext').disabled=false;
+    };
+    list.appendChild(b);
+  });
+}
+
+function pickTopic(){
+  newTopic();
+  document.getElementById('firstName').textContent = state.p1;
+  show('topic');
+}
+function newTopic(){
+  const tps = state.type.topics;
+  let t;
+  do { t = tps[Math.floor(Math.random()*tps.length)]; } while(t===state.topic && tps.length>1);
+  state.topic = t;
+  document.getElementById('topicTxt').textContent = t;
+}
+
+function goPitch(who){
+  state.current = who;
+  document.getElementById('curName').textContent = who==='A' ? state.p1 : state.p2;
+  document.getElementById('pitchTopic').textContent = state.topic;
+  document.getElementById('pitchText').value='';
+  startTimer(60);
+  show('pitch');
+  setupMic();
+}
+
+function startTimer(sec){
+  clearInterval(state.timerId);
+  const el = document.getElementById('timer');
+  el.textContent = sec;
+  el.classList.remove('warn');
+  state.timerId = setInterval(()=>{
+    sec--;
+    el.textContent = sec;
+    if(sec<=10) el.classList.add('warn');
+    if(sec<=0){clearInterval(state.timerId); endPitch();}
+  },1000);
+}
+
+function endPitch(){
+  clearInterval(state.timerId);
+  stopMic();
+  state.pitches[state.current] = document.getElementById('pitchText').value.trim();
+  if(state.current==='A'){
+    document.getElementById('passName').textContent = state.p2;
+    show('pass');
+  } else {
+    judge();
+  }
+}
+
+// MIC — Web Speech API
+let recog=null, recOn=false;
+function setupMic(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const btn = document.getElementById('micBtn');
+  if(!SR){ btn.style.display='none'; return; }
+  btn.style.display='block';
+  btn.classList.remove('rec');
+  btn.textContent='🎤 Nahrávat';
+  recog = new SR();
+  recog.lang='cs-CZ';
+  recog.continuous=true;
+  recog.interimResults=true;
+  let finalTxt='';
+  recog.onresult = e=>{
+    let interim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const t = e.results[i][0].transcript;
+      if(e.results[i].isFinal) finalTxt += t+' ';
+      else interim += t;
+    }
+    document.getElementById('pitchText').value = (finalTxt+interim).trim();
+  };
+  recog.onend = ()=>{ if(recOn){ try{recog.start();}catch(e){} } };
+}
+function toggleMic(){
+  if(!recog) return;
+  const btn = document.getElementById('micBtn');
+  if(recOn){ stopMic(); }
+  else {
+    try{ recog.start(); recOn=true; btn.classList.add('rec'); btn.textContent='⏸ Stop'; }
+    catch(e){}
+  }
+}
+function stopMic(){
+  if(!recog) return;
+  recOn=false;
+  try{recog.stop();}catch(e){}
+  const btn = document.getElementById('micBtn');
+  btn.classList.remove('rec');
+  btn.textContent='🎤 Nahrávat';
+}
+
+async function judge(){
+  show('judge');
+  err('');
+  const sys = `Jsi přísný porotce soutěže v pitchování. Hodnotíš dva hráče, kteří pitchovali stejné téma ve stejné kategorii. Hodnotíš pět kritérií, KAŽDÉ na škále 0–20 (max 100 za hráče). Buď přísný — plný počet je velmi vzácný. Krátké, prázdné nebo nesouvisející pitche dostávají velmi nízké skóre. Odpověz POUZE validním JSON ve formátu:
+{
+ "A":{"struktura":N,"obsah":N,"presvedcivost":N,"jazyk":N,"originalita":N,"komentar":"krátký český komentář"},
+ "B":{"struktura":N,"obsah":N,"presvedcivost":N,"jazyk":N,"originalita":N,"komentar":"krátký český komentář"}
+}
+Žádný další text. Vše v češtině.`;
+  const usr = `Kategorie: ${state.type.name}
+Téma: ${state.topic}
+
+Hráč A (${state.p1}):
+"""${state.pitches.A || '(prázdné)'}"""
+
+Hráč B (${state.p2}):
+"""${state.pitches.B || '(prázdné)'}"""`;
+
+  try{
+    const r = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'content-type':'application/json',
+        'x-api-key':state.apikey,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body: JSON.stringify({
+        model:'claude-sonnet-4-5',
+        max_tokens:800,
+        system: sys,
+        messages:[{role:'user',content:usr}]
+      })
+    });
+    if(!r.ok){
+      const tx = await r.text();
+      throw new Error('API '+r.status+': '+tx.slice(0,200));
+    }
+    const data = await r.json();
+    const txt = data.content[0].text.trim();
+    const m = txt.match(/\{[\s\S]*\}/);
+    const json = JSON.parse(m[0]);
+    state.scores = json;
+    await saveScore(json);
+    showResult(json);
+  } catch(e){
+    err('Chyba hodnocení: '+e.message);
+    show('setup');
+  }
+}
+
+const CRITS = [
+  ['struktura','Struktura'],
+  ['obsah','Obsah'],
+  ['presvedcivost','Přesvědčivost'],
+  ['jazyk','Jazyk a styl'],
+  ['originalita','Originalita']
+];
+
+function total(s){ return CRITS.reduce((a,[k])=>a+(+s[k]||0),0); }
+
+function showResult(j){
+  const tA = total(j.A), tB = total(j.B);
+  const winner = tA===tB ? 'Remíza!' : (tA>tB ? state.p1+' vyhrává!' : state.p2+' vyhrává!');
+  document.getElementById('winnerTxt').textContent = winner;
+  const board = document.getElementById('scoreBoard');
+  board.innerHTML='';
+  ['A','B'].forEach(k=>{
+    const name = k==='A'?state.p1:state.p2;
+    const s = j[k];
+    let html = `<div style="margin-top:14px"><div class="player-tag">${name}</div>`;
+    CRITS.forEach(([key,label])=>{
+      html += `<div class="score-row"><span>${label}</span><span>${s[key]}/20</span></div>`;
+    });
+    html += `<div class="score-row"><span>Celkem</span><span>${total(s)}/100</span></div>`;
+    if(s.komentar) html += `<div style="font-size:13px;opacity:.8;margin-top:8px;font-style:italic">"${s.komentar}"</div>`;
+    html += `</div>`;
+    board.innerHTML += html;
+  });
+  show('result');
+}
+
+async function saveScore(j){
+  try{
+    await supa.from('pitch_duel_scores').insert([{
+      player_a: state.p1,
+      player_b: state.p2,
+      category: state.type.name,
+      topic: state.topic,
+      score_a: total(j.A),
+      score_b: total(j.B),
+      details: j,
+      pitch_a: state.pitches.A,
+      pitch_b: state.pitches.B
+    }]);
+  } catch(e){ console.warn('save failed',e); }
+}
+</script>
+</body>
+</html>
